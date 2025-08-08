@@ -4,7 +4,16 @@ import {
   listFiles,
   formatFileList,
   FileOperationError,
-} from "../fileOperations";
+  writeFileSafe,
+  appendToFile,
+  ensureDir,
+  removePath,
+  movePath,
+  replaceInFile,
+  getFileInfo,
+  globSearch,
+  openInEditor
+} from "./commandMethods/fs";
 import { sendToRayLoop } from "../rayLoop";
 import { config } from "../config";
 
@@ -131,6 +140,71 @@ const commandHandlers: CommandRegistry = {
     description: "Send a test message to Ray API",
     usage: "test",
   },
+  // inside your registry:
+write: {
+  handler: async ([file, ...rest]) => {
+    const content = rest.join(' ');
+    await writeFileSafe(file, content);
+    return `✅ Wrote ${file}`;
+  },
+  description: 'Write (overwrite) a file with content',
+  usage: 'write <relativePath> <content...>',
+},
+
+append: {
+  handler: async ([file, ...rest]) => {
+    const content = rest.join(' ');
+    await appendToFile(file, content);
+    return `✅ Appended to ${file}`;
+  },
+  description: 'Append content to a file',
+  usage: 'append <relativePath> <content...>',
+},
+
+mkdir: {
+  handler: async ([dir]) => {
+    await ensureDir(dir);
+    return `✅ Ensured directory ${dir}`;
+  },
+  description: 'Create directory (recursive)',
+  usage: 'mkdir <relativePath>',
+},
+
+rm: {
+  handler: async ([target, recursiveFlag]) => {
+    await removePath(target, { recursive: recursiveFlag === '-r' || recursiveFlag === '--recursive' });
+    return `🗑️ Removed ${target}`;
+  },
+  description: 'Remove file/dir',
+  usage: 'rm <relativePath> [-r]',
+},
+
+mv: {
+  handler: async ([src, dest]) => {
+    await movePath(src, dest, { overwrite: true, createDirs: true });
+    return `🚚 Moved ${src} → ${dest}`;
+  },
+  description: 'Move/rename file/dir',
+  usage: 'mv <src> <dest>',
+},
+
+replace: {
+  handler: async ([file, search, replacement]) => {
+    const count = await replaceInFile(file, search, replacement, { global: true });
+    return `🔁 Replaced ${count} occurrence(s) in ${file}`;
+  },
+  description: 'Find & replace in a file (literal)',
+  usage: 'replace <file> <search> <replacement>',
+},
+
+open: {
+  handler: async ([file]) => {
+    await openInEditor(file);
+    return `📝 Opened ${file}`;
+  },
+  description: 'Open file in editor',
+  usage: 'open <relativePath>',
+},
 };
 
 /**

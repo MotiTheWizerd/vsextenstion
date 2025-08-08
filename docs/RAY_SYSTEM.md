@@ -50,8 +50,17 @@ This is the bridge that decides:
 ```typescript
 async function handleCommand(input: string): Promise<string> {
   // Internal commands
+  console.log('[Router] input:', input);
   if (input.startsWith("read ")) return await readFile(input.slice(5));
-  if (input.startsWith("list ")) return await listFiles(input.slice(5));
+  if (input.startsWith("list ")) {
+    console.log('inside list')
+  let arg = input.slice(5).trim();
+
+  const result = await listFiles(arg);
+  if (!result || result.length === 0) return "not found";
+  return result;
+}
+
   if (input === "status") return "Daemon is alive and ticking.";
   if (input === "ping") return "pong";
   if (input.startsWith("show logs")) return await showLogs(input);
