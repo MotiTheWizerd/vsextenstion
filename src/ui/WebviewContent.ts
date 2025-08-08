@@ -1,0 +1,201 @@
+import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * Escape HTML special characters to prevent XSS
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Get the URI for a webview resource
+ * @param extensionContext - The extension context
+ * @param relativePath - Relative path to the resource
+ * @returns The URI for the resource
+ */
+export function getWebviewResourceUri(
+  extensionContext: vscode.ExtensionContext,
+  relativePath: string
+): vscode.Uri {
+  const resourcePath = path.join(extensionContext.extensionPath, ...relativePath.split('/'));
+  return vscode.Uri.file(resourcePath).with({ scheme: 'vscode-resource' });
+}
+
+/**
+ * Get a nonce for CSP (Content Security Policy)
+ * @returns A random nonce string
+ */
+export function getNonce(): string {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+/**
+ * Configuration for the webview
+ */
+export interface WebviewConfig {
+  /**
+   * Whether to show the status bar
+   * @default true
+   */
+  showStatusBar?: boolean;
+  
+  /**
+   * Initial status message
+   * @default 'Ready'
+   */
+  initialStatus?: string;
+  
+  /**
+   * Title of the webview
+   * @default 'RayDaemon Control Panel'
+   */
+  title?: string;
+  
+  /**
+   * Whether to show the chat input
+   * @default true
+   */
+  showChatInput?: boolean;
+  
+  /**
+   * Custom CSS to inject into the webview
+   */
+  customCSS?: string;
+  
+  /**
+   * Custom JavaScript to inject into the webview
+   */
+  customJS?: string;
+}
+
+/**
+ * Default webview configuration
+ */
+const DEFAULT_CONFIG: Required<WebviewConfig> = {
+  showStatusBar: true,
+  initialStatus: 'Ready',
+  title: 'RayDaemon Control Panel',
+  showChatInput: true,
+  customCSS: '',
+  customJS: ''
+};
+
+/**
+ * Get the content for a webview panel
+ * @param extensionContext - The extension context
+ * @param config - Configuration for the webview
+ * @returns The HTML content for the webview
+ */
+export function getWebviewContent(
+  extensionContext: vscode.ExtensionContext,
+  config: WebviewConfig = {}
+): string {
+  // Merge with defaults
+  const mergedConfig: Required<WebviewConfig> = { ...DEFAULT_CONFIG, ...config };
+  
+  // Get paths to webview assets
+  const stylesPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/css/webview.css');
+  const scriptPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview.js');
+  
+  // Read CSS and JS files
+  let cssContent = '';
+  let jsContent = '';
+  
+  try {
+    cssContent = fs.readFileSync(stylesPath.fsPath, 'utf8');
+  } catch (error) {
+    console.error('Failed to load webview CSS:', error);
+    cssContent = '/* Error loading styles */';
+  }
+  
+  try {
+    jsContent = fs.readFileSync(scriptPath.fsPath, 'utf8');
+  } catch (error) {
+    console.error('Failed to load webview JS:', error);
+    jsContent = 'console.error("Failed to load webview JavaScript");';
+  }
+  
+  // Add custom CSS and JS if provided
+  if (mergedConfig.customCSS) {
+    cssContent += '\n' + mergedConfig.customCSS;
+  }
+  
+  if (mergedConfig.customJS) {
+    jsContent += '\n' + mergedConfig.customJS;
+  }
+  
+  // Generate the HTML content
+  return `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(mergedConfig.title)}</title>
+    <style>${cssContent}</style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h2>🚀 RayDaemon</h2>
+      </div>
+      
+      <div class="chat-container">
+        <div id="chatMessages" class="chat-messages"></div>
+        
+        <div id="typingIndicator" class="typing-indicator">
+          RayDaemon is thinking
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        
+        ${mergedConfig.showChatInput ? `
+        <div class="chat-input-container">
+          <div class="input-wrapper">
+            <textarea 
+              id="chatInput" 
+              placeholder="Message RayDaemon..." 
+              rows="1"
+              ${!mergedConfig.showChatInput ? 'disabled' : ''}
+            ></textarea>
+            <button id="sendButton" ${!mergedConfig.showChatInput ? 'disabled' : ''}>
+              Send
+            </button>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+      
+      ${mergedConfig.showStatusBar ? `
+      <div class="footer">
+        <div id="statusBar" class="status-bar">
+          <div class="status-indicator"></div>
+          <span>${escapeHtml(mergedConfig.initialStatus)}</span>
+        </div>
+      </div>
+      ` : ''}
+      
+      <script>
+        // Expose VS Code API
+        const vscode = acquireVsCodeApi();
+        
+        // Add the main JavaScript
+        ${jsContent}
+      </script>
+    </body>
+  </html>`;
+}
