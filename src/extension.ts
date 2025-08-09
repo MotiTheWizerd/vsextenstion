@@ -1,14 +1,18 @@
-import * as vscode from 'vscode';
-import * as http from 'http';
-import * as https from 'https';
-import * as path from 'path';
-import { config } from './config';
-import { registerCommands } from './commands';
-import { handleCommand } from './commands/commandHandler';
-import { RayDaemonTreeProvider } from './treeView';
-import { logInfo, logError } from './logging';
-import { getWebviewContent } from './ui/WebviewContent';
-
+import * as vscode from "vscode";
+import * as http from "http";
+import * as https from "https";
+import * as path from "path";
+import { config } from "./config";
+import { registerCommands } from "./commands";
+import { handleCommand } from "./commands/commandHandler";
+import { RayDaemonTreeProvider } from "./treeView";
+import { logInfo, logError } from "./logging";
+import { getWebviewContent } from "./ui/WebviewContent";
+import {
+  createExecuteCommandFactory,
+  RayResponsePayload,
+} from "./commands/execFactory";
+import { commandHandlers } from "./commands/commandHandler"; // ensure it's exported
 // Global state
 let daemonInterval: NodeJS.Timeout | undefined;
 let rayWebhookServer: http.Server | undefined;
@@ -16,127 +20,224 @@ let currentPanel: vscode.WebviewPanel | undefined;
 
 // Handle responses from Ray
 function handleRayPostResponse(rayResponse: any): void {
+  console.log(
+    "[RayDaemon] handleRayPostResponse called with:",
+    JSON.stringify(rayResponse, null, 2)
+  );
+
   if (!rayResponse) {
-    logError('Empty response received');
-    return;
-  }
-  
-  // Check if this is a status message indicating Ray is starting to work
-  if (rayResponse.status === 'start working' || rayResponse.status === 'working') {
-    logInfo('Ray is starting to work, showing working message to user');
-    
-    if (currentPanel) {
-      const workingMessage = {
-        type: 'rayResponse',
-        data: {
-          content: '🔄 **Ray is working on your request...** \n\nPlease wait while Ray processes your message. You\'ll receive the response shortly.',
-          isFinal: false,
-          isWorking: true
-        }
-      };
-      
-      currentPanel.webview.postMessage(workingMessage);
-    }
-    return;
-  }
-  
-  // Extract message content for actual responses
-  let content = '';
-  if (rayResponse.message) {
-    content = rayResponse.message;
-  } else if (rayResponse.content) {
-    content = rayResponse.content;
-  } else {
-    logError('No message or content in response:', rayResponse);
+    logError("Empty response received");
     return;
   }
 
-  logInfo('Forwarding Ray response to chat panel:', content);
-  
-  // Use the currentPanel variable that's set when the panel is created
-  if (currentPanel) {
-    try {
-      logInfo('Sending message to webview:', {
-        panelExists: true,
-        content: content,
-        isFinal: rayResponse.is_final || false
-      });
-      
-      // First, try the command format
-      // Send single rayResponse message to avoid duplicates
-      const rayResponseMessage = {
-        type: 'rayResponse',
+  // Treat payload as RayResponsePayload for clarity
+  const payload = rayResponse as RayResponsePayload;
+
+  // 1) Working status passthrough (unchanged)
+  if (payload.status === "start working" || payload.status === "working") {
+    logInfo("Ray is starting to work, showing working message to user");
+    if (currentPanel) {
+      currentPanel.webview.postMessage({
+        type: "rayResponse",
         data: {
-          content: content,
-          isFinal: rayResponse.is_final || false
-        }
-      };
-      
-      logInfo('Sending rayResponse message:', rayResponseMessage);
-      currentPanel.webview.postMessage(rayResponseMessage);
-      
-    } catch (error) {
-      logError('Error sending message to webview:', error);
+          content:
+            "🔄 **Ray is working on your request...** \n\nPlease wait while Ray processes your message. You'll receive the response shortly.",
+          isFinal: false,
+          isWorking: true,
+        },
+      });
     }
+    return;
+  }
+
+  // 2) Extract text content (unchanged)
+  let content = "";
+  if (payload.message) {
+    content = payload.message;
+  } else if (payload.content) {
+    content = payload.content;
   } else {
-    logError('No active chat panel to display message');
-    vscode.window.showErrorMessage('No active chat panel. Please open the RayDaemon panel first using the command palette (Ctrl+Shift+P > RayDaemon: Open Panel)');
+    logError("No message or content in response:", payload);
+    return;
+  }
+
+  const isFinal =
+    typeof payload.is_final === "string"
+      ? payload.is_final === "true"
+      : !!payload.is_final;
+
+  logInfo("Forwarding Ray response to chat panel:", content);
+
+  if (!currentPanel) {
+    logError("No active chat panel to display message");
+    vscode.window.showErrorMessage(
+      "No active chat panel. Please open the RayDaemon panel first using the command palette (Ctrl+Shift+P > RayDaemon: Open Panel)"
+    );
+    return;
+  }
+
+  try {
+    // 3) Send the chat text to the webview (unchanged)
+    const rayResponseMessage = {
+      type: "rayResponse",
+      data: { content, isFinal },
+    };
+    logInfo("Sending rayResponse message:", rayResponseMessage);
+    currentPanel.webview.postMessage(rayResponseMessage);
+
+    // 4) NEW: Execute tool calls if provided
+    if (
+      Array.isArray(payload.command_calls) &&
+      payload.command_calls.length > 0
+    ) {
+      logInfo(
+        `[Ray][command_calls] executing ${payload.command_calls.length} call(s)…`
+      );
+      logInfo(
+        `[Ray][command_calls] available commands:`,
+        Object.keys(commandHandlers)
+      );
+      logInfo(`[Ray][command_calls] received calls:`, payload.command_calls);
+
+      // Debug: Log the raw JSON to see if underscores are preserved
+      console.log(
+        "[Ray][command_calls] Raw JSON payload:",
+        JSON.stringify(payload.command_calls, null, 2)
+      );
+
+      // Create the executor factory here to ensure commandHandlers is fully loaded
+      const { executeBatch } = createExecuteCommandFactory(commandHandlers);
+
+      // Execute immediately with proper error handling
+      (async () => {
+        try {
+          logInfo("[Ray][command_calls] Starting execution...");
+          const batch = await executeBatch(payload.command_calls, {
+            stopOnError: false,
+          });
+          logInfo("[Ray][command_calls] results:", batch);
+
+          // Format and send command results to chat
+          if (batch.anyExecuted && batch.results.length > 0) {
+            const resultMessages = batch.results.map((result) => {
+              // Debug: Log the actual args to see if underscores are preserved
+              console.log("[Ray][command_calls] Result args:", result.args);
+
+              // Use code blocks to preserve exact formatting including underscores
+              const argsText = result.args.join(" ");
+
+              if (result.ok) {
+                return `✅ **${result.command}** \`${argsText}\`\n${
+                  result.output || "Command executed successfully"
+                }`;
+              } else {
+                return `❌ **${result.command}** \`${argsText}\`\n**Error:** ${result.error}`;
+              }
+            });
+
+            const commandResultsMessage = `\n---\n**🔧 Command Execution Results:**\n\n${resultMessages.join(
+              "\n\n"
+            )}`;
+
+            // Send command results as a separate chat message
+            currentPanel?.webview.postMessage({
+              type: "rayResponse",
+              data: {
+                content: commandResultsMessage,
+                isFinal: false,
+                isCommandResult: true,
+              },
+            });
+          }
+
+          // Also forward raw results to UI for debugging
+          currentPanel?.webview.postMessage({
+            type: "rayCommandResults",
+            data: batch,
+          });
+        } catch (err) {
+          logError("[Ray][command_calls] batch error:", err);
+
+          // Send error message to chat
+          const errorMessage = `\n---\n**❌ Command Execution Error:**\n\n${String(
+            err
+          )}`;
+          currentPanel?.webview.postMessage({
+            type: "rayResponse",
+            data: {
+              content: errorMessage,
+              isFinal: false,
+              isCommandResult: true,
+            },
+          });
+
+          currentPanel?.webview.postMessage({
+            type: "rayCommandResults",
+            data: { anyExecuted: false, results: [], error: String(err) },
+          });
+        }
+      })();
+    }
+  } catch (error) {
+    logError("Error sending message to webview:", error);
   }
 }
 
 // Start webhook server for Ray to POST back to
 function startRayWebhookServer(): void {
   if (rayWebhookServer) {
-    logInfo('Webhook server already running');
+    logInfo("Webhook server already running");
     return;
   }
 
   const port = config.webhookPort || 3001; // Default to port 3001 if not configured
 
   rayWebhookServer = http.createServer((req, res) => {
-    if (req.method === 'GET' && req.url === '/health') {
+    if (req.method === "GET" && req.url === "/health") {
       // Health check endpoint
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({ status: "ok", timestamp: new Date().toISOString() })
+      );
       return;
     }
 
-    if (req.method === 'POST' && req.url === '/ray-response') {
-      let body = '';
-      
-      req.on('data', (chunk: Buffer) => {
+    if (req.method === "POST" && req.url === "/ray-response") {
+      let body = "";
+
+      req.on("data", (chunk: Buffer) => {
         body += chunk.toString();
       });
-      
-      req.on('end', () => {
+
+      req.on("end", () => {
         try {
           const data = JSON.parse(body);
           handleRayPostResponse(data);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ status: 'received' }));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ status: "received" }));
         } catch (error) {
-          logError('Error processing webhook:', error);
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid request' }));
+          logError("Error processing webhook:", error);
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid request" }));
         }
       });
     } else {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not found' }));
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
     }
   });
 
-  rayWebhookServer.on('error', (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EADDRINUSE') {
+  rayWebhookServer.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code === "EADDRINUSE") {
       const errorMsg = `Port ${port} is already in use. Please free the port and restart the extension.`;
       logError(errorMsg);
       vscode.window.showErrorMessage(errorMsg);
     } else {
-      logError('Webhook server error:', error);
+      logError("Webhook server error:", error);
     }
   });
 
-  rayWebhookServer.listen(port, '0.0.0.0', () => {
+  rayWebhookServer.listen(port, "0.0.0.0", () => {
     logInfo(`Webhook server running on port ${port}`);
   });
 }
@@ -144,17 +245,17 @@ function startRayWebhookServer(): void {
 // Start the Ray daemon
 function startRayDaemon(): void {
   if (daemonInterval) {
-    logInfo('Daemon already running');
+    logInfo("Daemon already running");
     return;
   }
-  
-  logInfo('Starting Ray daemon...');
-  
+
+  logInfo("Starting Ray daemon...");
+
   // Start the daemon interval
   daemonInterval = setInterval(() => {
-    logInfo('Daemon heartbeat');
+    logInfo("Daemon heartbeat");
   }, 60000); // Run every minute
-  
+
   // Start the webhook server
   startRayWebhookServer();
 }
@@ -164,15 +265,15 @@ function stopRayDaemon(): void {
   if (daemonInterval) {
     clearInterval(daemonInterval);
     daemonInterval = undefined;
-    logInfo('Daemon stopped');
+    logInfo("Daemon stopped");
   }
-  
+
   if (rayWebhookServer) {
     rayWebhookServer.close();
     rayWebhookServer = undefined;
-    logInfo('Webhook server stopped');
+    logInfo("Webhook server stopped");
   }
-  
+
   // Clear the global panel reference
   (global as any).currentPanel = undefined;
 }
@@ -303,10 +404,10 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.ViewColumn.Two,
         { enableScripts: true }
       );
-      
+
       // Store panel reference for autonomous messaging
       currentPanel = panel;
-      
+
       // Handle panel disposal
       panel.onDidDispose(
         () => {
@@ -320,18 +421,19 @@ export function activate(context: vscode.ExtensionContext) {
       panel.webview.onDidReceiveMessage(
         async (message) => {
           switch (message.type || message.command) {
-            case 'chat':
+            case "chat":
               try {
                 const result = await handleCommand(message.content);
-                panel.webview.postMessage({ 
-                  type: 'chat_response', 
-                  content: result 
+                panel.webview.postMessage({
+                  type: "chat_response",
+                  content: result,
                 });
               } catch (error) {
-                logError('Error handling chat command:', error);
+                logError("Error handling chat command:", error);
                 panel.webview.postMessage({
                   command: "chatError",
-                  error: error instanceof Error ? error.message : 'Unknown error'
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
                 });
               }
               break;
@@ -347,11 +449,12 @@ export function activate(context: vscode.ExtensionContext) {
                   result: apiResult,
                 });
               } catch (error) {
-                logError('Error handling API call command:', error);
+                logError("Error handling API call command:", error);
                 panel.webview.postMessage({
                   command: "apiCallError",
                   id: message.id,
-                  error: error instanceof Error ? error.message : 'Unknown error'
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
                 });
               }
               break;
@@ -367,11 +470,11 @@ export function activate(context: vscode.ExtensionContext) {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [
-          vscode.Uri.file(path.join(context.extensionPath, 'media')),
-          vscode.Uri.file(path.join(context.extensionPath, 'out/compiled')),
-        ]
+          vscode.Uri.file(path.join(context.extensionPath, "media")),
+          vscode.Uri.file(path.join(context.extensionPath, "out/compiled")),
+        ],
       };
-      
+
       panel.webview.html = getWebviewContent(context, webviewConfig);
     })
   );
