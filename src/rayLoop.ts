@@ -71,27 +71,26 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
   }
 }
 
-export async function continueRayLoop(rayPrompt: string): Promise<void> {
+export async function sendCommandResultsToRay(originalMessage: string, commandResults: any[]): Promise<void> {
   try {
-    console.log(`[RayDaemon] Continuing Ray Loop with: ${rayPrompt}`);
+    console.log(`[RayDaemon] Sending command results back to Ray:`, commandResults);
     
-    // Send continuation request to Ray API endpoint
-    const messageData = {
-      ...config.formatMessage(rayPrompt),
-      type: 'continuation',
-      action: 'continue'
-    };
+    // Format message with populated command results
+    const messageData = config.formatMessageWithResults(originalMessage, commandResults);
     
+    console.log(`[RayDaemon] Sending command results to ${config.apiEndpoint}:`, messageData);
+    
+    // Send to main API endpoint with populated command results (same as user messages)
     await ApiClient.post(
-      config.rayApiEndpoint,
+      config.apiEndpoint,
       messageData,
       config.apiHeaders
     );
     
-    console.log(`[RayDaemon] Ray Loop continuation sent successfully`);
+    console.log(`[RayDaemon] Command results sent successfully to Ray`, messageData);
     
   } catch (error) {
-    console.error('[RayDaemon] Error in continueRayLoop:', error);
+    console.error('[RayDaemon] Error sending command results to Ray:', error);
     throw error;
   }
 }

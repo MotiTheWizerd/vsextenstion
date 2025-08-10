@@ -13,6 +13,8 @@ import {
   RayResponsePayload,
 } from "./commands/execFactory";
 import { commandHandlers } from "./commands/commandHandler"; // ensure it's exported
+import { sendCommandResultsToRay } from "./rayLoop";
+import { disposeGlobalDiagnosticWatcher } from "./commands/commandMethods/diagnostics";
 // Global state
 let daemonInterval: NodeJS.Timeout | undefined;
 let rayWebhookServer: http.Server | undefined;
@@ -112,41 +114,89 @@ function handleRayPostResponse(rayResponse: any): void {
       (async () => {
         try {
           logInfo("[Ray][command_calls] Starting execution...");
-          const batch = await executeBatch(payload.command_calls, {
+          logInfo("[Ray][command_calls] Raw command calls:", JSON.stringify(payload.command_calls, null, 2));
+          
+          // Show working indicator to user
+          const toolNames = (payload.command_calls || []).map(call => {
+            switch (call.command) {
+              case "read": return "Reading file(s)";
+              case "searchRegex":
+              case "searchText": return "Searching codebase";
+              case "findSymbol":
+              case "findSymbolFromIndex": return "Finding symbol";
+              case "loadIndex": return "Loading index";
+              case "ls": return "Listing directory";
+              case "open": return "Opening file";
+              case "write": return "Writing file";
+              default: return call.command;
+            }
+          });
+          
+          currentPanel?.webview.postMessage({
+            type: "toolStatus",
+            data: {
+              status: "working",
+              tools: toolNames
+            }
+          });
+          
+          // Preprocess command calls to handle special placeholders
+          const processedCalls = (payload.command_calls || []).map(call => {
+            if (call.args && Array.isArray(call.args)) {
+              const processedArgs = call.args.map(arg => {
+                if (typeof arg === 'string' && arg === '/absolute/path/from/active/editor') {
+                  // Get the active editor file path
+                  const activeEditor = vscode.window.activeTextEditor;
+                  if (activeEditor) {
+                    return activeEditor.document.uri.fsPath;
+                  } else {
+                    throw new Error('No active editor file found');
+                  }
+                }
+                return arg;
+              });
+              return { ...call, args: processedArgs };
+            }
+            return call;
+          });
+          
+          logInfo("[Ray][command_calls] Processed command calls:", JSON.stringify(processedCalls, null, 2));
+          
+          const batch = await executeBatch(processedCalls, {
             stopOnError: false,
           });
           logInfo("[Ray][command_calls] results:", batch);
+          logInfo("[Ray][command_calls] Detailed results:", JSON.stringify(batch, null, 2));
 
-          // Format and send command results to chat
+          // Format command results for Ray API
+          const commandResults = batch.results.map((result) => ({
+            command: result.command,
+            status: result.ok ? "success" : "error",
+            output: result.ok ? result.output : result.error,
+            args: result.args
+          }));
+
+          // Send command results back to Ray automatically
+          try {
+            await sendCommandResultsToRay(content, commandResults);
+            logInfo("[Ray][command_calls] Command results sent back to Ray successfully");
+          } catch (rayError) {
+            logError("[Ray][command_calls] Failed to send results back to Ray:", rayError);
+          }
+
+          // Send tool completion status to user
           if (batch.anyExecuted && batch.results.length > 0) {
-            const resultMessages = batch.results.map((result) => {
-              // Debug: Log the actual args to see if underscores are preserved
-              console.log("[Ray][command_calls] Result args:", result.args);
-
-              // Use code blocks to preserve exact formatting including underscores
-              const argsText = result.args.join(" ");
-
-              if (result.ok) {
-                return `✅ **${result.command}** \`${argsText}\`\n${
-                  result.output || "Command executed successfully"
-                }`;
-              } else {
-                return `❌ **${result.command}** \`${argsText}\`\n**Error:** ${result.error}`;
-              }
-            });
-
-            const commandResultsMessage = `\n---\n**🔧 Command Execution Results:**\n\n${resultMessages.join(
-              "\n\n"
-            )}`;
-
-            // Send command results as a separate chat message
+            const successCount = batch.results.filter(r => r.ok).length;
+            const failedCount = batch.results.length - successCount;
+            
             currentPanel?.webview.postMessage({
-              type: "rayResponse",
+              type: "toolStatus",
               data: {
-                content: commandResultsMessage,
-                isFinal: false,
-                isCommandResult: true,
-              },
+                status: "completed",
+                successCount,
+                failedCount,
+                totalCount: batch.results.length
+              }
             });
           }
 
@@ -158,17 +208,28 @@ function handleRayPostResponse(rayResponse: any): void {
         } catch (err) {
           logError("[Ray][command_calls] batch error:", err);
 
-          // Send error message to chat
-          const errorMessage = `\n---\n**❌ Command Execution Error:**\n\n${String(
-            err
-          )}`;
+          // Format error results for Ray API
+          const errorResults = [{
+            command: "batch_execution",
+            status: "error",
+            output: String(err)
+          }];
+
+          // Send error results back to Ray
+          try {
+            await sendCommandResultsToRay(content, errorResults);
+            logInfo("[Ray][command_calls] Error results sent back to Ray");
+          } catch (rayError) {
+            logError("[Ray][command_calls] Failed to send error results back to Ray:", rayError);
+          }
+
+          // Send tool error status to user
           currentPanel?.webview.postMessage({
-            type: "rayResponse",
+            type: "toolStatus",
             data: {
-              content: errorMessage,
-              isFinal: false,
-              isCommandResult: true,
-            },
+              status: "failed",
+              error: String(err)
+            }
           });
 
           currentPanel?.webview.postMessage({
@@ -532,4 +593,5 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   stopRayDaemon();
+  disposeGlobalDiagnosticWatcher();
 }

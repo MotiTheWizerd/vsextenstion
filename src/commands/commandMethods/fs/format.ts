@@ -6,7 +6,9 @@ export function formatFileList(entries: FileEntry[]): string {
       const typeIcon = entry.type === 'directory' ? '📁' : '📄';
       const size = entry.size !== undefined ? ` (${formatFileSize(entry.size)})` : '';
       const modified = entry.modified ? ` - ${entry.modified.toLocaleString()}` : '';
-      return `${typeIcon} ${entry.name}${size}${modified}`;
+      // Use the full path instead of just the name
+      const displayPath = entry.path || entry.name;
+      return `${typeIcon} ${displayPath}${size}${modified}`;
     })
     .join('\n');
 }

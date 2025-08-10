@@ -42,17 +42,24 @@ export interface BatchExecutionResult {
 
 /**
  * Validates that args looks like string[].
- * Coerces single string to [string], otherwise throws.
+ * Coerces single string to [string], converts objects to JSON strings.
  */
 function normalizeArgs(args: unknown): string[] {
-  if (args === null) return [];
+  if (args === null) {return [];}
   if (Array.isArray(args)) {
-    const allStrings = args.every(a => typeof a === "string");
-    if (!allStrings) throw new CommandError("Invalid args: expected string[]", "EINVAL");
-    return args as string[];
+    return args.map(arg => {
+      if (typeof arg === "string") {return arg;}
+      if (typeof arg === "object" && arg !== null) {
+        return JSON.stringify(arg);
+      }
+      return String(arg);
+    });
   }
-  if (typeof args === "string") return [args];
-  throw new CommandError("Invalid args: expected string[]", "EINVAL");
+  if (typeof args === "string") {return [args];}
+  if (typeof args === "object" && args !== null) {
+    return [JSON.stringify(args)];
+  }
+  return [String(args)];
 }
 
 /**
