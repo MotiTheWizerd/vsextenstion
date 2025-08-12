@@ -5,7 +5,7 @@ import { FileOperationError } from './errors';
 import { findByExtension } from './findByExtension';
 import { findSymbolsInFile, SymbolInfo } from './findSymbolsInFile';
 import { getFileInfo } from './stat';
-import { expandExtensions } from '../../commandHandler';
+import { expandExtensions } from '../../handlers/utils';
 import { resolveWorkspacePath } from './pathResolver';
 
 export interface WorkspaceIndex {
