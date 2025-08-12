@@ -1,118 +1,88 @@
-import * as http from 'http';
-import * as https from 'https';
-import { URL } from 'url';
+import * as http from "http";
+import * as https from "https";
 
+// API Client for making web requests
 export class ApiClient {
   static async makeRequest(
     url: string,
-    method: string = 'GET',
+    method: string = "GET",
     headers: Record<string, string> = {},
-    body?: any
+    body?: string
   ): Promise<{ status: number; data: any; headers: any }> {
     return new Promise((resolve, reject) => {
-      try {
-        const parsedUrl = new URL(url);
-        const isHttps = parsedUrl.protocol === 'https:';
-        const client = isHttps ? https : http;
-        
-        const requestHeaders: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'User-Agent': 'RayDaemon-VSCode-Extension/1.0.0',
-          ...headers
-        };
+      const parsedUrl = new URL(url);
+      const isHttps = parsedUrl.protocol === "https:";
+      const client = isHttps ? https : http;
 
-        // Add Content-Length for POST/PUT requests
-        if (body && (method === 'POST' || method === 'PUT')) {
-          const bodyString = JSON.stringify(body);
-          requestHeaders['Content-Length'] = Buffer.byteLength(bodyString).toString();
-        }
+      const requestHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": "RayDaemon-VSCode-Extension/1.0.0",
+        ...headers,
+      };
 
-        const options = {
-          hostname: parsedUrl.hostname,
-          port: parsedUrl.port || (isHttps ? 443 : 80),
-          path: parsedUrl.pathname + parsedUrl.search,
-          method: method.toUpperCase(),
-          headers: requestHeaders,
-          timeout: 30000 // 30 second timeout
-        };
-
-        console.log(`[ApiClient] Making ${method} request to ${url}`);
-        console.log(`[ApiClient] Request options:`, options);
-
-        const req = client.request(options, (res) => {
-          let data = '';
-          
-          res.on('data', (chunk: Buffer) => {
-            data += chunk.toString();
-          });
-          
-          res.on('end', () => {
-            try {
-              console.log(`[ApiClient] Response status: ${res.statusCode}`);
-              console.log(`[ApiClient] Response data: ${data}`);
-              
-              let parsedData;
-              try {
-                parsedData = data ? JSON.parse(data) : {};
-              } catch (parseError) {
-                // If JSON parsing fails, return the raw data
-                parsedData = data;
-              }
-              
-              const response = {
-                status: res.statusCode || 500,
-                data: parsedData,
-                headers: res.headers
-              };
-              
-              resolve(response);
-            } catch (error) {
-              console.error(`[ApiClient] Error processing response:`, error);
-              reject(error);
-            }
-          });
-        });
-
-        req.on('error', (error) => {
-          console.error(`[ApiClient] Request failed:`, error);
-          reject(error);
-        });
-
-        req.on('timeout', () => {
-          console.error(`[ApiClient] Request timeout for ${url}`);
-          req.destroy();
-          reject(new Error(`Request timeout for ${url}`));
-        });
-
-        // Write body for POST/PUT requests
-        if (body && (method === 'POST' || method === 'PUT')) {
-          const bodyString = JSON.stringify(body);
-          console.log(`[ApiClient] Request body:`, bodyString);
-          req.write(bodyString);
-        }
-
-        req.end();
-        
-      } catch (error) {
-        console.error(`[ApiClient] Error creating request:`, error);
-        reject(error);
+      if (body && method.toUpperCase() !== "GET") {
+        requestHeaders["Content-Length"] = Buffer.byteLength(body).toString();
       }
+
+      const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: method.toUpperCase(),
+        headers: requestHeaders,
+      };
+
+      const req = client.request(options, (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        res.on("end", () => {
+          try {
+            const parsedData = data ? JSON.parse(data) : {};
+            resolve({
+              status: res.statusCode || 0,
+              data: parsedData,
+              headers: res.headers,
+            });
+          } catch (error) {
+            resolve({
+              status: res.statusCode || 0,
+              data: data,
+              headers: res.headers,
+            });
+          }
+        });
+      });
+
+      req.on("error", (error) => {
+        reject(error);
+      });
+
+      if (body && method.toUpperCase() !== "GET") {
+        req.write(body);
+      }
+
+      req.end();
     });
   }
 
-  static async get(url: string, headers: Record<string, string> = {}) {
-    return this.makeRequest(url, 'GET', headers);
+  static async get(url: string, headers?: Record<string, string>) {
+    return this.makeRequest(url, "GET", headers);
   }
 
-  static async post(url: string, data: any = {}, headers: Record<string, string> = {}) {
-    return this.makeRequest(url, 'POST', headers, data);
+  static async post(url: string, data?: any, headers?: Record<string, string>) {
+    const body = data ? JSON.stringify(data) : undefined;
+    return this.makeRequest(url, "POST", headers, body);
   }
 
-  static async put(url: string, data: any = {}, headers: Record<string, string> = {}) {
-    return this.makeRequest(url, 'PUT', headers, data);
+  static async put(url: string, data?: any, headers?: Record<string, string>) {
+    const body = data ? JSON.stringify(data) : undefined;
+    return this.makeRequest(url, "PUT", headers, body);
   }
 
-  static async delete(url: string, headers: Record<string, string> = {}) {
-    return this.makeRequest(url, 'DELETE', headers);
+  static async delete(url: string, headers?: Record<string, string>) {
+    return this.makeRequest(url, "DELETE", headers);
   }
 }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { config } from './config';
+import { config } from '../../config';
 
 export class RayDaemonTreeProvider implements vscode.TreeDataProvider<RayDaemonItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<RayDaemonItem | undefined | null> = 
