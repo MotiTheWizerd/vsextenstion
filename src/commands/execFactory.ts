@@ -92,10 +92,17 @@ export function createExecuteCommandFactory(commandRegistry: CommandRegistry) {
     try {
       console.log("[execFactory] Executing command:", command, "with args:", args);
       const output = await entry.handler(args);
-      console.log("[execFactory] Command executed successfully, output:", output);
+      console.log("[execFactory] Command executed successfully, output length:", output?.length || 0);
+      console.log("[execFactory] Command output preview:", output?.substring(0, 200) + (output?.length > 200 ? "..." : ""));
       return { command, args, ok: true, output };
     } catch (err: any) {
-      console.log("[execFactory] Command execution failed:", err);
+      console.error("[execFactory] Command execution failed:", err);
+      console.error("[execFactory] Error details:", {
+        name: err?.name,
+        message: err?.message,
+        code: err?.code,
+        stack: err?.stack?.split('\n').slice(0, 5).join('\n') // First 5 lines of stack
+      });
       const msg = err?.message ?? String(err);
       const code = err?.code ? ` [${err.code}]` : "";
       return { command, args, ok: false, error: `${msg}${code}` };

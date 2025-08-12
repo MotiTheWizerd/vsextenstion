@@ -1,6 +1,14 @@
 import { config } from './config';
 import { ApiClient } from './apiClient';
 
+// Forward declaration to avoid circular import
+let processRayResponse: ((rayResponse: any) => Promise<void>) | null = null;
+
+// Function to set the processRayResponse callback from extension.ts
+export function setProcessRayResponseCallback(callback: (rayResponse: any) => Promise<void>) {
+  processRayResponse = callback;
+}
+
 export async function sendToRayLoop(prompt: string): Promise<string> {
   try {
     console.log(`[RayDaemon] Sending message to Ray API: ${prompt}`);
@@ -20,7 +28,13 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
     console.log(`[RayDaemon] API Response Status: ${response.status}`);
     console.log(`[RayDaemon] API Response Data:`, response.data);
     
-    // Handle different response formats
+    // Process the response through the same logic as handleRayPostResponse
+    // This will handle both direct responses and tool execution
+    if (processRayResponse) {
+      await processRayResponse(response.data);
+    }
+    
+    // Handle different response formats for immediate return
     if (response.status >= 200 && response.status < 300) {
       // Check if this is a "start working" status response
       if (response.data?.status === 'start working' || 
@@ -29,7 +43,14 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
         return '🔄 **Ray is working on your request...** \n\nPlease wait while Ray processes your message. You\'ll receive the response shortly.';
       }
       
-      // Extract the response message
+      // Check if response contains command_calls - if so, the processRayResponse will handle everything
+      const commandCalls = response.data?.command_calls;
+      if (Array.isArray(commandCalls) && commandCalls.length > 0) {
+        // Response with tools - processRayResponse will handle the flow
+        return '__RAY_RESPONSE_HANDLED__:Tools are being executed, response will be handled by processRayResponse';
+      }
+      
+      // Extract the response message for normal responses (no tools)
       let responseMessage = '';
       
       if (typeof response.data === 'string') {
@@ -46,7 +67,8 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
         responseMessage = JSON.stringify(response.data, null, 2);
       }
       
-      return responseMessage || 'Response received but no content found.';
+      // Return a special marker to indicate that the response has already been handled
+      return `__RAY_RESPONSE_HANDLED__:${responseMessage || 'Response received but no content found.'}`;
     } else {
       throw new Error(`API returned status ${response.status}: ${JSON.stringify(response.data)}`);
     }
@@ -71,26 +93,98 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
   }
 }
 
+// Track pending command result sends to prevent duplicates
+const pendingCommandResults = new Set<string>();
+
+// Track active tool executions to prevent recursive status messages
+let activeToolExecution = false;
+
+export function setActiveToolExecution(active: boolean) {
+  activeToolExecution = active;
+}
+
+export function isActiveToolExecution(): boolean {
+  return activeToolExecution;
+}
+
 export async function sendCommandResultsToRay(originalMessage: string, commandResults: any[]): Promise<void> {
+  console.log("=== SEND COMMAND RESULTS TO RAY START ===");
+  console.log(`[RayDaemon] *** sendCommandResultsToRay CALLED ***`);
+  console.log(`[RayDaemon] Original message: "${originalMessage}"`);
+  console.log(`[RayDaemon] Command results count: ${commandResults.length}`);
+  console.log(`[RayDaemon] Command results:`, JSON.stringify(commandResults, null, 2));
+  
+  // Create a unique key for this command result send
+  const commandKey = `${originalMessage}-${JSON.stringify(commandResults)}-${Date.now()}`;
+  
+  // If we're already sending these command results, skip
+  if (pendingCommandResults.has(commandKey)) {
+    console.log(`[RayDaemon] Skipping duplicate command results send for key: ${commandKey}`);
+    return;
+  }
+  
+  // Mark as pending
+  pendingCommandResults.add(commandKey);
+  
   try {
     console.log(`[RayDaemon] Sending command results back to Ray:`, commandResults);
     
-    // Format message with populated command results
+    // Send command results immediately after execution
+    console.log(`[RayDaemon] Sending command results immediately...`);
+    
+    // Format message with populated command results - Ray should continue the conversation
     const messageData = config.formatMessageWithResults(originalMessage, commandResults);
     
-    console.log(`[RayDaemon] Sending command results to ${config.apiEndpoint}:`, messageData);
+    console.log(`[RayDaemon] Sending command results to ${config.apiEndpoint}`);
+    console.log(`[RayDaemon] Message data being sent:`, JSON.stringify(messageData, null, 2));
     
     // Send to main API endpoint with populated command results (same as user messages)
-    await ApiClient.post(
+    const response = await ApiClient.post(
       config.apiEndpoint,
       messageData,
       config.apiHeaders
     );
     
-    console.log(`[RayDaemon] Command results sent successfully to Ray`, messageData);
+    console.log(`[RayDaemon] Command results sent successfully to Ray. Response status: ${response.status}`);
+    console.log(`[RayDaemon] Command results API response data:`, JSON.stringify(response.data, null, 2));
+    
+    // IMPORTANT: Process Ray's response to the command results
+    if (response.data && response.status >= 200 && response.status < 300) {
+      console.log(`[RayDaemon] Ray responded to command results with status ${response.status}, processing response...`);
+      console.log(`[RayDaemon] Ray's follow-up response:`, JSON.stringify(response.data, null, 2));
+      
+      // Process Ray's follow-up response to continue the conversation
+      if (processRayResponse) {
+        console.log("=== RAY FOLLOW-UP RESPONSE RECEIVED ===");
+        console.log(`[RayDaemon] Calling processRayResponse for follow-up...`);
+        console.log(`[RayDaemon] Ray's follow-up response data:`, JSON.stringify(response.data, null, 2));
+        await processRayResponse(response.data);
+        console.log(`[RayDaemon] Follow-up response processed successfully`);
+        console.log("=== SEND COMMAND RESULTS TO RAY END ===");
+      } else {
+        console.warn(`[RayDaemon] processRayResponse callback not set, cannot process Ray's follow-up response`);
+      }
+    } else {
+      console.log(`[RayDaemon] Ray did not provide a valid follow-up response. Status: ${response.status}, Data: ${JSON.stringify(response.data)}`);
+      
+      // If Ray doesn't respond properly, we should still show something to the user
+      if (processRayResponse) {
+        await processRayResponse({
+          message: "Command results sent successfully, but no follow-up response received.",
+          is_final: true
+        });
+      }
+    }
     
   } catch (error) {
     console.error('[RayDaemon] Error sending command results to Ray:', error);
+    console.error('[RayDaemon] Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
+  } finally {
+    // Remove from pending set
+    pendingCommandResults.delete(commandKey);
   }
 }

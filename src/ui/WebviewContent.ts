@@ -148,7 +148,7 @@ export function getWebviewContent(
   <body>
     <div class="container">
       <div class="header">
-        <h2>🚀 RayDaemon</h2>
+        <h2>⚔️😈 RayDaemon</h2>
       </div>
       
       <div class="chat-container">
@@ -166,15 +166,54 @@ export function getWebviewContent(
         ${mergedConfig.showChatInput ? `
         <div class="chat-input-container">
           <div class="input-wrapper">
-            <textarea 
-              id="chatInput" 
-              placeholder="Message RayDaemon..." 
-              rows="1"
-              ${!mergedConfig.showChatInput ? 'disabled' : ''}
-            ></textarea>
-            <button id="sendButton" ${!mergedConfig.showChatInput ? 'disabled' : ''}>
-              Send
-            </button>
+            <div class="input-context">
+              <div class="context-icon">@</div>
+              <span class="context-file">RayDaemon</span>
+            </div>
+            <div class="input-main">
+              <!-- Row 2: Text Input (Full Width) -->
+              <div class="input-text-row">
+                <textarea 
+                  id="chatInput" 
+                  placeholder="Plan, search, build anything" 
+                  rows="1"
+                  ${!mergedConfig.showChatInput ? 'disabled' : ''}
+                ></textarea>
+              </div>
+              
+              <!-- Row 3: Controls (Agent, Auto, Icons) -->
+              <div class="input-controls-row">
+                <div class="input-controls">
+                  <button class="control-button">
+                    <span>∞ Agent</span>
+                    <svg class="dropdown-arrow" viewBox="0 0 12 12" fill="currentColor">
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <button class="control-button">
+                    <span>Auto</span>
+                    <svg class="dropdown-arrow" viewBox="0 0 12 12" fill="currentColor">
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="input-actions">
+                  <button class="action-button" title="Attach file">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
+                    </svg>
+                  </button>
+                  <button id="sendButton" ${!mergedConfig.showChatInput ? 'disabled' : ''}>
+                    <div class="send-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         ` : ''}

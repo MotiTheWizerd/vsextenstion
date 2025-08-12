@@ -6,7 +6,9 @@
 // Simple markdown to HTML converter
 class MarkdownParser {
   static parse(text) {
-    if (!text) {return "";}
+    if (!text) {
+      return "";
+    }
 
     // Convert headers
     text = text.replace(/^### (.*$)/gm, "<h3>$1</h3>");
@@ -192,7 +194,9 @@ class ModernChatUI {
 
   handleSendMessage() {
     const message = this.chatInput.value.trim();
-    if (!message) {return;}
+    if (!message) {
+      return;
+    }
 
     // Add user message with avatar
     this.addMessage("user", message, { showAvatar: true });
@@ -269,15 +273,15 @@ class ModernChatUI {
 
     const messageDiv = document.createElement("div");
     messageDiv.className = `message ${sender}`;
-    
+
     // Mark working messages for easy identification
     if (isWorking) {
-      messageDiv.setAttribute('data-working', 'true');
+      messageDiv.setAttribute("data-working", "true");
     }
-    
+
     // Mark tool messages for special styling
     if (isToolMessage) {
-      messageDiv.classList.add('tool-message');
+      messageDiv.classList.add("tool-message");
     }
 
     // Add avatar if requested (not for tool messages)
@@ -336,55 +340,67 @@ class ModernChatUI {
   }
 
   handleToolStatus(data) {
-    const { status, tools, successCount, failedCount, totalCount, error } = data;
-    
-    let content = '';
-    let className = 'tool-status';
+    const { status, tools, successCount, failedCount, totalCount, error } =
+      data;
 
-    if (status === 'working') {
+    let content = "";
+    let className = "tool-status";
+
+    if (status === "working") {
       // Show working indicator with tool names
-      const toolList = tools && tools.length > 0 ? tools.join(', ') : 'Processing';
+      const toolList =
+        tools && tools.length > 0 ? tools.join(", ") : "Processing";
       content = `<div class="${className} working" data-tool-id="current-working">
         <div class="tool-icon">⚡</div>
         <div class="tool-text">${toolList}</div>
         <div class="tool-spinner"></div>
       </div>`;
-      
+
       // Remove only the current working indicator if it exists
-      const existingWorking = this.chatMessages.querySelector('[data-tool-id="current-working"]');
+      const existingWorking = this.chatMessages.querySelector(
+        '[data-tool-id="current-working"]'
+      );
       if (existingWorking) {
         existingWorking.remove();
       }
-    } else if (status === 'completed') {
+    } else if (status === "completed") {
       // Remove the working indicator
-      const workingIndicator = this.chatMessages.querySelector('[data-tool-id="current-working"]');
+      const workingIndicator = this.chatMessages.querySelector(
+        '[data-tool-id="current-working"]'
+      );
       if (workingIndicator) {
         workingIndicator.remove();
       }
-      
+
       // Create specific completion message based on tools used
       let completionText = this.getCompletionText(tools, totalCount);
-      
+
       if (failedCount > 0) {
         content = `<div class="${className} partial">
           <div class="tool-icon">⚠️</div>
-          <div class="tool-text">${completionText} (${failedCount} error${failedCount > 1 ? 's' : ''})</div>
+          <div class="tool-text">${completionText} (${failedCount} error${
+          failedCount > 1 ? "s" : ""
+        })</div>
           <div class="tool-count">${successCount}/${totalCount}</div>
         </div>`;
       } else {
         content = `<div class="${className} success">
           <div class="tool-icon">✅</div>
           <div class="tool-text">${completionText}</div>
-          <div class="tool-count">${totalCount} result${totalCount > 1 ? 's' : ''}</div>
+          <div class="tool-count">${totalCount} result${
+          totalCount > 1 ? "s" : ""
+        }</div>
         </div>`;
       }
-    } else if (status === 'failed') {
+    } else if (status === "failed") {
       // Remove the working indicator
-      const workingIndicator = this.chatMessages.querySelector('[data-tool-id="current-working"]');
+      const workingIndicator = this.chatMessages.querySelector(
+        '[data-tool-id="current-working"]'
+      );
       if (workingIndicator) {
         workingIndicator.remove();
       }
-      
+
       content = `<div class="${className} failed">
         <div class="tool-icon">❌</div>
         <div class="tool-text">Tool execution failed</div>
@@ -395,7 +411,7 @@ class ModernChatUI {
       const messageDiv = document.createElement("div");
       messageDiv.className = "message system tool-message";
       messageDiv.innerHTML = content;
-      
+
       this.chatMessages.appendChild(messageDiv);
       this.scrollToBottom();
     }
@@ -403,28 +419,32 @@ class ModernChatUI {
 
   getCompletionText(tools, resultCount) {
     if (!tools || tools.length === 0) {
-      return 'Completed task';
+      return "Completed task";
     }
-    
+
     // Determine the primary action based on tools used
-    const toolTypes = tools.map(tool => tool.toLowerCase());
-    
-    if (toolTypes.some(t => t.includes('search'))) {
-      return 'Searched codebase';
-    } else if (toolTypes.some(t => t.includes('read'))) {
-      return 'Read file(s)';
-    } else if (toolTypes.some(t => t.includes('find') || t.includes('symbol'))) {
-      return 'Found symbols';
-    } else if (toolTypes.some(t => t.includes('load') || t.includes('index'))) {
-      return 'Loaded index';
-    } else if (toolTypes.some(t => t.includes('list'))) {
-      return 'Listed directory';
-    } else if (toolTypes.some(t => t.includes('open'))) {
-      return 'Opened file(s)';
-    } else if (toolTypes.some(t => t.includes('write'))) {
-      return 'Modified file(s)';
+    const toolTypes = tools.map((tool) => tool.toLowerCase());
+
+    if (toolTypes.some((t) => t.includes("search"))) {
+      return "Searched codebase";
+    } else if (toolTypes.some((t) => t.includes("read"))) {
+      return "Read file(s)";
+    } else if (
+      toolTypes.some((t) => t.includes("find") || t.includes("symbol"))
+    ) {
+      return "Found symbols";
+    } else if (
+      toolTypes.some((t) => t.includes("load") || t.includes("index"))
+    ) {
+      return "Loaded index";
+    } else if (toolTypes.some((t) => t.includes("list"))) {
+      return "Listed directory";
+    } else if (toolTypes.some((t) => t.includes("open"))) {
+      return "Opened file(s)";
+    } else if (toolTypes.some((t) => t.includes("write"))) {
+      return "Modified file(s)";
     } else {
-      return 'Analyzed codebase';
+      return "Analyzed codebase";
     }
   }
 
@@ -455,15 +475,18 @@ class ModernChatUI {
 
     if (message.type === "rayResponse" && message.data) {
       const { content, isWorking, isFinal, isCommandResult } = message.data;
-      if (content && !isCommandResult) { // Skip old command result messages
+      if (content && !isCommandResult) {
+        // Skip old command result messages
         // If this is a final response and we have a working message, replace it
         if (isFinal !== false && !isWorking) {
-          const workingMessage = this.chatMessages.querySelector('[data-working="true"]');
+          const workingMessage = this.chatMessages.querySelector(
+            '[data-working="true"]'
+          );
           if (workingMessage) {
             workingMessage.remove();
           }
         }
-        
+
         this.addMessage("assistant", content, {
           isMarkdown: true,
           showAvatar: true,
@@ -502,7 +525,9 @@ class ModernChatUI {
   }
 
   navigateHistory(direction) {
-    if (this.messageHistory.length === 0) {return;}
+    if (this.messageHistory.length === 0) {
+      return;
+    }
 
     if (
       direction === "up" &&
@@ -595,8 +620,9 @@ class ModernChatUI {
       const sendButtonWidth = this.sendButton.offsetWidth;
       const gap = 12; // Gap between input and button
       const containerPadding = 48; // Total horizontal padding
-      
-      const availableWidth = inputWrapper.offsetWidth - sendButtonWidth - gap - containerPadding;
+
+      const availableWidth =
+        inputWrapper.offsetWidth - sendButtonWidth - gap - containerPadding;
       this.chatInput.style.width = `${Math.max(availableWidth, 200)}px`;
     }
   }
@@ -610,6 +636,240 @@ class ModernChatUI {
   focusInput() {
     this.chatInput?.focus();
     this.ensureInputWidth();
+  }
+
+  hasFileResults(results) {
+    if (!results || results.length === 0) {
+      return false;
+    }
+
+    // Check if any result contains file paths or file-related output
+    return results.some((result) => {
+      if (!result.ok || !result.output) {
+        return false;
+      }
+
+      const command = result.command;
+      const output = result.output;
+
+      // Commands that typically return file paths
+      if (
+        [
+          "findByExtension",
+          "ls",
+          "searchText",
+          "searchRegex",
+          "findSymbol",
+          "findSymbolFromIndex",
+        ].includes(command)
+      ) {
+        return true;
+      }
+
+      // Check if output contains file paths (simple heuristic)
+      if (
+        typeof output === "string" &&
+        (output.includes("/") || output.includes("\\"))
+      ) {
+        return true;
+      }
+
+      // Check if output is an array of file paths
+      if (Array.isArray(output) && output.length > 0) {
+        return output.some(
+          (item) =>
+            typeof item === "string" &&
+            (item.includes("/") || item.includes("\\"))
+        );
+      }
+
+      return false;
+    });
+  }
+
+  createFileDropdown(results, totalCount) {
+    const files = this.extractFileList(results);
+    if (files.length === 0) {
+      return "";
+    }
+
+    const displayFiles = files.slice(0, 10); // Show max 10 files
+    const hasMore = files.length > 10;
+
+    const fileItems = displayFiles
+      .map((file) => {
+        const icon = this.getFileIcon(file);
+        const fileName = file.split(/[/\\]/).pop() || file;
+        const filePath =
+          file.length > fileName.length
+            ? file.substring(0, file.length - fileName.length - 1)
+            : "";
+
+        return `
+        <div class="tool-file-item" data-file-path="${file}">
+          <div class="tool-file-icon">${icon}</div>
+          <div class="tool-file-name">${fileName}</div>
+          ${filePath ? `<div class="tool-file-path">${filePath}</div>` : ""}
+        </div>
+      `;
+      })
+      .join("");
+
+    const moreIndicator = hasMore
+      ? `<div class="tool-more-indicator">... and ${
+          files.length - 10
+        } more files</div>`
+      : "";
+
+    return `
+      <div class="tool-dropdown">
+        <div class="tool-file-list">
+          ${fileItems}
+          ${moreIndicator}
+        </div>
+      </div>
+    `;
+  }
+
+  extractFileList(results) {
+    const files = new Set();
+
+    results.forEach((result) => {
+      if (!result.ok || !result.output) {
+        return;
+      }
+
+      const output = result.output;
+
+      if (typeof output === "string") {
+        // Split by newlines and filter for file paths
+        const lines = output
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line);
+        lines.forEach((line) => {
+          if (line.includes("/") || line.includes("\\")) {
+            // Remove any leading/trailing quotes or whitespace
+            const cleanPath = line.replace(/^["']|["']$/g, "").trim();
+            if (cleanPath) {
+              files.add(cleanPath);
+            }
+          }
+        });
+      } else if (Array.isArray(output)) {
+        output.forEach((item) => {
+          if (
+            typeof item === "string" &&
+            (item.includes("/") || item.includes("\\"))
+          ) {
+            files.add(item);
+          }
+        });
+      }
+    });
+
+    return Array.from(files).sort();
+  }
+
+  getFileIcon(filePath) {
+    const fileName = filePath.split(/[/\\]/).pop() || "";
+    const extension = fileName.split(".").pop()?.toLowerCase() || "";
+
+    // File type icons
+    const iconMap = {
+      js: "📄",
+      ts: "📘",
+      jsx: "⚛️",
+      tsx: "⚛️",
+      html: "🌐",
+      css: "🎨",
+      scss: "🎨",
+      sass: "🎨",
+      json: "📋",
+      md: "📝",
+      txt: "📄",
+      py: "🐍",
+      java: "☕",
+      cpp: "⚙️",
+      c: "⚙️",
+      php: "🐘",
+      rb: "💎",
+      go: "🐹",
+      rs: "🦀",
+      vue: "💚",
+      xml: "📄",
+      yml: "⚙️",
+      yaml: "⚙️",
+      png: "🖼️",
+      jpg: "🖼️",
+      jpeg: "🖼️",
+      gif: "🖼️",
+      svg: "🎨",
+      pdf: "📕",
+      zip: "📦",
+      tar: "📦",
+      gz: "📦",
+    };
+
+    // Check if it's a directory (no extension or ends with /)
+    if (!extension || filePath.endsWith("/") || filePath.endsWith("\\")) {
+      return "📁";
+    }
+
+    return iconMap[extension] || "📄";
+  }
+
+  toggleToolDropdown(messageDiv) {
+    console.log("toggleToolDropdown called");
+
+    const dropdown = messageDiv.querySelector(".tool-dropdown");
+    const countElement = messageDiv.querySelector(".tool-count.expandable");
+
+    console.log("dropdown:", dropdown, "countElement:", countElement);
+
+    if (!dropdown || !countElement) {
+      console.log("Missing dropdown or countElement");
+      return;
+    }
+
+    const isExpanded = dropdown.classList.contains("expanded");
+    console.log("isExpanded:", isExpanded);
+
+    if (isExpanded) {
+      dropdown.classList.remove("expanded");
+      countElement.classList.remove("expanded");
+      console.log("Collapsed dropdown");
+    } else {
+      dropdown.classList.add("expanded");
+      countElement.classList.add("expanded");
+      console.log("Expanded dropdown");
+
+      // Add click handlers to file items
+      const fileItems = dropdown.querySelectorAll(".tool-file-item");
+      fileItems.forEach((item) => {
+        item.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const filePath = item.dataset.filePath;
+          if (filePath) {
+            this.openFile(filePath);
+          }
+        });
+      });
+    }
+
+    // Scroll to keep the dropdown in view
+    setTimeout(() => {
+      this.scrollToBottom();
+    }, 300);
+  }
+
+  openFile(filePath) {
+    // Send message to extension to open the file
+    this.postMessage({
+      type: "openFile",
+      filePath: filePath,
+    });
   }
 }
 

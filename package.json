@@ -40,6 +40,15 @@
         }
       ]
     },
+    "menus": {
+      "view/title": [
+        {
+          "command": "raydaemon.openPanel",
+          "when": "view == rayDaemonDummyView",
+          "group": "navigation"
+        }
+      ]
+    },
     "views": {
       "rayDaemonContainer": [
         {
@@ -47,7 +56,13 @@
           "name": "Control Panel"
         }
       ]
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "rayDaemonDummyView",
+        "contents": "Welcome to RayDaemon!\n\n[Open Control Panel](command:raydaemon.openPanel)\n\nClick the button above to open the chat interface."
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",

@@ -18,19 +18,24 @@ export const config = {
     // 'Authorization': 'Bearer YOUR_TOKEN_HERE'
   },
 
-  // Customize the request body format for your API
+  // Customize the request body format for your API - match server expectations
   formatMessage: (message: string) => ({
     message: message,
-    timestamp: new Date().toISOString(),
-    source: "raydaemon-vscode",
-    command_results: [],
+    model: null,
+    thinking_budget: 0,
+    include_system: true,
+    use_memory: true,
+    max_memory_messages: 10
   }),
 
-  // Format message with command results populated
+  // Format message with command results populated - match server expectations
   formatMessageWithResults: (message: string, commandResults: any[]) => ({
     message: message,
-    timestamp: new Date().toISOString(),
-    source: "raydaemon-vscode",
     command_results: commandResults,
+    model: null,
+    thinking_budget: 0,
+    include_system: true,
+    use_memory: true,
+    max_memory_messages: 10
   }),
 };

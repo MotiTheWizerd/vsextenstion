@@ -13,23 +13,391 @@ import {
   RayResponsePayload,
 } from "./commands/execFactory";
 import { commandHandlers } from "./commands/commandHandler"; // ensure it's exported
-import { sendCommandResultsToRay } from "./rayLoop";
+import {
+  sendCommandResultsToRay,
+  setProcessRayResponseCallback,
+} from "./rayLoop";
 import { disposeGlobalDiagnosticWatcher } from "./commands/commandMethods/diagnostics";
+
 // Global state
 let daemonInterval: NodeJS.Timeout | undefined;
 let rayWebhookServer: http.Server | undefined;
 let currentPanel: vscode.WebviewPanel | undefined;
 
+// Track processed webhook requests to prevent duplicates
+const processedWebhookRequests = new Set<string>();
+
 // Handle responses from Ray
 function handleRayPostResponse(rayResponse: any): void {
+  console.log("[RayDaemon] *** handleRayPostResponse CALLED ***");
   console.log(
-    "[RayDaemon] handleRayPostResponse called with:",
+    "[RayDaemon] Ray response:",
     JSON.stringify(rayResponse, null, 2)
+  );
+
+  // Create a unique key for this webhook request
+  const requestKey = JSON.stringify(rayResponse);
+  if (processedWebhookRequests.has(requestKey)) {
+    console.log("[RayDaemon] Skipping duplicate webhook request processing");
+    return;
+  }
+
+  // Mark as processed
+  processedWebhookRequests.add(requestKey);
+
+  // Clean up old entries to prevent memory leaks (keep last 100)
+  if (processedWebhookRequests.size > 100) {
+    const firstKey = processedWebhookRequests.values().next().value;
+    if (firstKey) {
+      processedWebhookRequests.delete(firstKey);
+    }
+  }
+
+  console.log(
+    "[RayDaemon] Processing webhook request, calling processRayResponse..."
+  );
+  processRayResponse(rayResponse);
+}
+
+// Execute command calls and send results back to Ray
+// Track tool execution to prevent duplicate status messages
+let isExecutingTools = false;
+
+async function executeCommandCallsAndSendResults(
+  content: string,
+  commandCalls: any[]
+): Promise<void> {
+  console.log("[RayDaemon] *** executeCommandCallsAndSendResults CALLED ***");
+  console.log("[RayDaemon] Content:", content);
+  console.log(
+    "[RayDaemon] Command calls:",
+    JSON.stringify(commandCalls, null, 2)
+  );
+
+  if (!Array.isArray(commandCalls) || commandCalls.length === 0) {
+    console.log("[RayDaemon] No command calls to execute");
+    return;
+  }
+
+  // Prevent concurrent executions
+  console.log("[RayDaemon] Checking isExecutingTools flag:", isExecutingTools);
+  if (isExecutingTools) {
+    console.log(
+      "[RayDaemon] Tools already executing, skipping duplicate execution"
+    );
+    return;
+  }
+
+  console.log("[RayDaemon] Setting isExecutingTools = true");
+  isExecutingTools = true;
+
+  logInfo(`[Ray][command_calls] executing ${commandCalls.length} call(s)…`);
+  logInfo(
+    `[Ray][command_calls] available commands:`,
+    Object.keys(commandHandlers)
+  );
+  logInfo(`[Ray][command_calls] received calls:`, commandCalls);
+
+  // Debug: Log the raw JSON to see if underscores are preserved
+  console.log(
+    "[Ray][command_calls] Raw JSON payload:",
+    JSON.stringify(commandCalls, null, 2)
+  );
+
+  // Create the executor factory here to ensure commandHandlers is fully loaded
+  const { executeBatch } = createExecuteCommandFactory(commandHandlers);
+
+  // Execute immediately with proper error handling
+  try {
+    logInfo("[Ray][command_calls] Starting execution...");
+    logInfo(
+      "[Ray][command_calls] Raw command calls:",
+      JSON.stringify(commandCalls, null, 2)
+    );
+
+    // Show working indicator to user if panel exists
+    if (currentPanel) {
+      const toolNames = commandCalls.map((call) => {
+        const args = call.args || [];
+        switch (call.command) {
+          case "read":
+            const fileName = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+            return `Reading ${fileName}`;
+          case "searchRegex":
+          case "searchText":
+            const searchTerm = args[0] || "text";
+            return `Searching "${
+              searchTerm.length > 15
+                ? searchTerm.substring(0, 15) + "..."
+                : searchTerm
+            }"`;
+          case "findSymbol":
+          case "findSymbolFromIndex":
+            const symbolName = args[0] || "symbol";
+            return `Finding ${symbolName}`;
+          case "loadIndex":
+            return "Loading index";
+          case "createIndex":
+            return "Creating index";
+          case "updateIndex":
+            return "Updating index";
+          case "ls":
+            const dirName = args[0]
+              ? args[0].split(/[/\\]/).pop() || args[0]
+              : "directory";
+            return `Listing ${dirName}`;
+          case "open":
+            const openFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+            return `Opening ${openFile}`;
+          case "write":
+            const writeFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+            return `Writing ${writeFile}`;
+          case "findByExtension":
+            const ext = args[0] || "files";
+            return `Finding ${ext} files`;
+          case "getAllDiagnostics":
+            return "Analyzing diagnostics";
+          case "getFileDiagnostics":
+            const diagFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+            return `Checking ${diagFile}`;
+          default:
+            return call.command;
+        }
+      });
+
+      currentPanel?.webview.postMessage({
+        type: "toolStatus",
+        data: {
+          status: "working",
+          tools: toolNames,
+        },
+      });
+    }
+
+    // Add a small delay to ensure the "working" status is visible before tools start executing
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Preprocess command calls to handle special placeholders
+    const processedCalls = commandCalls.map((call) => {
+      if (call.args && Array.isArray(call.args)) {
+        const processedArgs = call.args.map((arg: any) => {
+          if (
+            typeof arg === "string" &&
+            arg === "/absolute/path/from/active/editor"
+          ) {
+            // Get the active editor file path
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor) {
+              return activeEditor.document.uri.fsPath;
+            } else {
+              throw new Error("No active editor file found");
+            }
+          }
+          return arg;
+        });
+        return { ...call, args: processedArgs };
+      }
+      return call;
+    });
+
+    logInfo(
+      "[Ray][command_calls] Processed command calls:",
+      JSON.stringify(processedCalls, null, 2)
+    );
+
+    const batch = await executeBatch(processedCalls, {
+      stopOnError: false,
+    });
+    logInfo("[Ray][command_calls] results:", batch);
+    logInfo(
+      "[Ray][command_calls] Detailed results:",
+      JSON.stringify(batch, null, 2)
+    );
+
+    // Format command results for Ray API
+    const commandResults = batch.results.map((result) => ({
+      command: result.command,
+      status: result.ok ? "success" : "error",
+      output: result.ok ? result.output : result.error,
+      args: result.args,
+    }));
+
+    // Send tool completion status to user IMMEDIATELY when tools finish
+    if (currentPanel && batch.anyExecuted && batch.results.length > 0) {
+      const successCount = batch.results.filter((r) => r.ok).length;
+      const failedCount = batch.results.length - successCount;
+
+      // Record the completion time to prevent duplicates
+      lastToolCompletionTime = Date.now();
+
+      // Show completion status immediately, don't wait for Ray API
+      currentPanel?.webview.postMessage({
+        type: "toolStatus",
+        data: {
+          status: "completed",
+          successCount,
+          failedCount,
+          totalCount: batch.results.length,
+          tools: commandCalls.map((call) => call.command), // Include tool names for better messaging
+          results: batch.results.map((result) => ({
+            command: result.command,
+            args: result.args,
+            ok: result.ok,
+            outputLength: result.output?.length || 0,
+            error: result.error,
+          })),
+        },
+      });
+    }
+
+    console.log(
+      "[RayDaemon] Sending command results back to Ray:",
+      commandResults
+    );
+
+    // Clear the execution flag BEFORE sending results to Ray
+    // This prevents Ray's follow-up response from being blocked
+    console.log(
+      "[RayDaemon] Clearing isExecutingTools flag before sending to Ray"
+    );
+    isExecutingTools = false;
+
+    // Send command results back to Ray automatically (in background, don't wait)
+    try {
+      await sendCommandResultsToRay(content, commandResults);
+      logInfo(
+        "[Ray][command_calls] Command results sent back to Ray successfully"
+      );
+      console.log("[RayDaemon] Command results sent back to Ray successfully");
+    } catch (rayError) {
+      logError(
+        "[Ray][command_calls] Failed to send results back to Ray:",
+        rayError
+      );
+      console.error(
+        "[RayDaemon] Failed to send command results back to Ray:",
+        rayError
+      );
+    }
+
+    // Also forward raw results to UI for debugging if panel exists
+    if (currentPanel) {
+      currentPanel?.webview.postMessage({
+        type: "rayCommandResults",
+        data: batch,
+      });
+    }
+
+    // Tools execution completed successfully
+  } catch (err) {
+    console.error(
+      "[RayDaemon] Error in executeCommandCallsAndSendResults:",
+      err
+    );
+    logError("[Ray][command_calls] batch error:", err);
+
+    // Format error results for Ray API
+    const errorResults = [
+      {
+        command: "batch_execution",
+        status: "error",
+        output: String(err),
+      },
+    ];
+
+    // Clear the execution flag BEFORE sending error results to Ray
+    console.log(
+      "[RayDaemon] Clearing isExecutingTools flag before sending error to Ray"
+    );
+    isExecutingTools = false;
+
+    // Send error results back to Ray
+    try {
+      await sendCommandResultsToRay(content, errorResults);
+      logInfo("[Ray][command_calls] Error results sent back to Ray");
+      console.log("[RayDaemon] Error results sent back to Ray");
+    } catch (rayError) {
+      logError(
+        "[Ray][command_calls] Failed to send error results back to Ray:",
+        rayError
+      );
+      console.error(
+        "[RayDaemon] Failed to send error results back to Ray:",
+        rayError
+      );
+    }
+
+    // Send tool error status to user if panel exists
+    if (currentPanel) {
+      currentPanel?.webview.postMessage({
+        type: "toolStatus",
+        data: {
+          status: "failed",
+          error: String(err),
+        },
+      });
+
+      currentPanel?.webview.postMessage({
+        type: "rayCommandResults",
+        data: { anyExecuted: false, results: [], error: String(err) },
+      });
+    }
+
+    // Tools execution completed with error
+  }
+}
+
+// Track processed responses to prevent duplicates
+const processedResponses = new Set<string>();
+
+// Track recent tool completions to prevent duplicate status messages
+let lastToolCompletionTime = 0;
+
+// Track command execution to prevent infinite loops
+const executedCommandSets = new Set<string>();
+
+// Process Ray response with common functionality
+export async function processRayResponse(rayResponse: any): Promise<void> {
+  console.log("=== PROCESS RAY RESPONSE START ===");
+  console.log(
+    "[RayDaemon] processRayResponse called with:",
+    JSON.stringify(rayResponse, null, 2)
+  );
+  console.log(
+    "[RayDaemon] processRayResponse - Current panel exists:",
+    !!currentPanel
+  );
+  console.log(
+    "[RayDaemon] processRayResponse - lastToolCompletionTime:",
+    lastToolCompletionTime
+  );
+  console.log(
+    "[RayDaemon] processRayResponse - Time since last completion:",
+    Date.now() - lastToolCompletionTime,
+    "ms"
   );
 
   if (!rayResponse) {
     logError("Empty response received");
     return;
+  }
+
+  // Create a unique key for this response to prevent duplicates
+  const responseKey = JSON.stringify(rayResponse);
+  if (processedResponses.has(responseKey)) {
+    console.log("[RayDaemon] Skipping duplicate response processing");
+    return;
+  }
+
+  // Mark as processed
+  processedResponses.add(responseKey);
+
+  // Clean up old entries to prevent memory leaks (keep last 100)
+  if (processedResponses.size > 100) {
+    const firstKey = processedResponses.values().next().value;
+    if (firstKey) {
+      processedResponses.delete(firstKey);
+    }
   }
 
   // Treat payload as RayResponsePayload for clarity
@@ -79,168 +447,82 @@ function handleRayPostResponse(rayResponse: any): void {
   }
 
   try {
-    // 3) Send the chat text to the webview (unchanged)
-    const rayResponseMessage = {
-      type: "rayResponse",
-      data: { content, isFinal },
-    };
-    logInfo("Sending rayResponse message:", rayResponseMessage);
-    currentPanel.webview.postMessage(rayResponseMessage);
+    // Check for command_calls first before sending any UI response
+    const commandCalls = payload.command_calls || rayResponse.command_calls;
+    console.log("=== COMMAND CALLS CHECK ===");
+    console.log("[RayDaemon] Checking for command calls in payload:", {
+      hasCommandCalls: "command_calls" in payload,
+      commandCallsType: typeof payload.command_calls,
+      commandCallsValue: payload.command_calls,
+      isArray: Array.isArray(commandCalls),
+      length: commandCalls?.length,
+    });
+    console.log("[RayDaemon] Full payload keys:", Object.keys(payload));
+    console.log("[RayDaemon] Content preview:", content?.substring(0, 100));
 
-    // 4) NEW: Execute tool calls if provided
-    if (
-      Array.isArray(payload.command_calls) &&
-      payload.command_calls.length > 0
-    ) {
-      logInfo(
-        `[Ray][command_calls] executing ${payload.command_calls.length} call(s)…`
-      );
-      logInfo(
-        `[Ray][command_calls] available commands:`,
-        Object.keys(commandHandlers)
-      );
-      logInfo(`[Ray][command_calls] received calls:`, payload.command_calls);
-
-      // Debug: Log the raw JSON to see if underscores are preserved
+    if (Array.isArray(commandCalls) && commandCalls.length > 0) {
+      console.log("=== FOUND COMMAND CALLS - EXECUTING TOOLS ===");
+      // CRITICAL FIX: If there are command calls, first show Ray's message explaining what she's doing
       console.log(
-        "[Ray][command_calls] Raw JSON payload:",
-        JSON.stringify(payload.command_calls, null, 2)
+        "[RayDaemon] Found command calls, showing Ray's message first then executing tools..."
+      );
+      console.log(
+        "[RayDaemon] Command calls to execute:",
+        JSON.stringify(commandCalls, null, 2)
       );
 
-      // Create the executor factory here to ensure commandHandlers is fully loaded
-      const { executeBatch } = createExecuteCommandFactory(commandHandlers);
+      // First, send Ray's actual message explaining what she's doing
+      if (currentPanel && content) {
+        currentPanel.webview.postMessage({
+          type: "rayResponse",
+          data: {
+            content: content,
+            isFinal: false,
+            isWorking: false,
+          },
+        });
+      }
 
-      // Execute immediately with proper error handling
-      (async () => {
-        try {
-          logInfo("[Ray][command_calls] Starting execution...");
-          logInfo("[Ray][command_calls] Raw command calls:", JSON.stringify(payload.command_calls, null, 2));
-          
-          // Show working indicator to user
-          const toolNames = (payload.command_calls || []).map(call => {
-            switch (call.command) {
-              case "read": return "Reading file(s)";
-              case "searchRegex":
-              case "searchText": return "Searching codebase";
-              case "findSymbol":
-              case "findSymbolFromIndex": return "Finding symbol";
-              case "loadIndex": return "Loading index";
-              case "ls": return "Listing directory";
-              case "open": return "Opening file";
-              case "write": return "Writing file";
-              default: return call.command;
-            }
-          });
-          
-          currentPanel?.webview.postMessage({
-            type: "toolStatus",
-            data: {
-              status: "working",
-              tools: toolNames
-            }
-          });
-          
-          // Preprocess command calls to handle special placeholders
-          const processedCalls = (payload.command_calls || []).map(call => {
-            if (call.args && Array.isArray(call.args)) {
-              const processedArgs = call.args.map(arg => {
-                if (typeof arg === 'string' && arg === '/absolute/path/from/active/editor') {
-                  // Get the active editor file path
-                  const activeEditor = vscode.window.activeTextEditor;
-                  if (activeEditor) {
-                    return activeEditor.document.uri.fsPath;
-                  } else {
-                    throw new Error('No active editor file found');
-                  }
-                }
-                return arg;
-              });
-              return { ...call, args: processedArgs };
-            }
-            return call;
-          });
-          
-          logInfo("[Ray][command_calls] Processed command calls:", JSON.stringify(processedCalls, null, 2));
-          
-          const batch = await executeBatch(processedCalls, {
-            stopOnError: false,
-          });
-          logInfo("[Ray][command_calls] results:", batch);
-          logInfo("[Ray][command_calls] Detailed results:", JSON.stringify(batch, null, 2));
+      console.log("=== EXECUTING TOOLS ===");
+      // Execute tools and wait for completion - this will automatically send results back to Ray
+      await executeCommandCallsAndSendResults(content, commandCalls);
 
-          // Format command results for Ray API
-          const commandResults = batch.results.map((result) => ({
-            command: result.command,
-            status: result.ok ? "success" : "error",
-            output: result.ok ? result.output : result.error,
-            args: result.args
-          }));
-
-          // Send command results back to Ray automatically
-          try {
-            await sendCommandResultsToRay(content, commandResults);
-            logInfo("[Ray][command_calls] Command results sent back to Ray successfully");
-          } catch (rayError) {
-            logError("[Ray][command_calls] Failed to send results back to Ray:", rayError);
-          }
-
-          // Send tool completion status to user
-          if (batch.anyExecuted && batch.results.length > 0) {
-            const successCount = batch.results.filter(r => r.ok).length;
-            const failedCount = batch.results.length - successCount;
-            
-            currentPanel?.webview.postMessage({
-              type: "toolStatus",
-              data: {
-                status: "completed",
-                successCount,
-                failedCount,
-                totalCount: batch.results.length
-              }
-            });
-          }
-
-          // Also forward raw results to UI for debugging
-          currentPanel?.webview.postMessage({
-            type: "rayCommandResults",
-            data: batch,
-          });
-        } catch (err) {
-          logError("[Ray][command_calls] batch error:", err);
-
-          // Format error results for Ray API
-          const errorResults = [{
-            command: "batch_execution",
-            status: "error",
-            output: String(err)
-          }];
-
-          // Send error results back to Ray
-          try {
-            await sendCommandResultsToRay(content, errorResults);
-            logInfo("[Ray][command_calls] Error results sent back to Ray");
-          } catch (rayError) {
-            logError("[Ray][command_calls] Failed to send error results back to Ray:", rayError);
-          }
-
-          // Send tool error status to user
-          currentPanel?.webview.postMessage({
-            type: "toolStatus",
-            data: {
-              status: "failed",
-              error: String(err)
-            }
-          });
-
-          currentPanel?.webview.postMessage({
-            type: "rayCommandResults",
-            data: { anyExecuted: false, results: [], error: String(err) },
-          });
-        }
-      })();
+      // Do NOT send the original chat response to UI again - the tool execution flow will handle the conversation continuation
+      console.log("=== TOOLS COMPLETED ===");
+      console.log(
+        "[RayDaemon] Tools completed, conversation will continue via command results feedback"
+      );
+      console.log("=== PROCESS RAY RESPONSE END (TOOLS) ===");
+    } else {
+      // No command calls - send the chat response normally
+      console.log("=== NO COMMAND CALLS - NORMAL RESPONSE ===");
+      console.log(
+        "[RayDaemon] No command calls found, sending normal chat response"
+      );
+      const rayResponseMessage = {
+        type: "rayResponse",
+        data: { content, isFinal },
+      };
+      logInfo("Sending rayResponse message:", rayResponseMessage);
+      currentPanel.webview.postMessage(rayResponseMessage);
+      console.log("=== PROCESS RAY RESPONSE END (NORMAL) ===");
     }
   } catch (error) {
-    logError("Error sending message to webview:", error);
+    logError("Error processing Ray response:", error);
+
+    // Send error to UI
+    if (currentPanel) {
+      currentPanel.webview.postMessage({
+        type: "rayResponse",
+        data: {
+          content: `❌ **Error processing response:** ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          isFinal: true,
+          isWorking: false,
+        },
+      });
+    }
   }
 }
 
@@ -273,6 +555,13 @@ function startRayWebhookServer(): void {
       req.on("end", () => {
         try {
           const data = JSON.parse(body);
+          console.log("[RayDaemon] Webhook received POST request:", {
+            url: req.url,
+            method: req.method,
+            headers: req.headers,
+            body: data,
+            timestamp: new Date().toISOString(),
+          });
           handleRayPostResponse(data);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ status: "received" }));
@@ -449,6 +738,10 @@ class RayDaemonItem extends vscode.TreeItem {
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("[RayDaemon] Extension activated.");
+
+  // Set up the callback for processing Ray responses in rayLoop.ts
+  setProcessRayResponseCallback(processRayResponse);
+
   startRayDaemon();
 
   context.subscriptions.push(
@@ -461,11 +754,13 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("raydaemon.openPanel", () => {
       const panel = vscode.window.createWebviewPanel(
         "rayDaemonPanel",
-        "RayDaemon Control",
+        "RayDaemon",
         vscode.ViewColumn.Two,
         { enableScripts: true }
       );
-
+      panel.iconPath = vscode.Uri.file(
+        path.join(context.extensionPath, "media", "avatar.png") // Replace with your icon path
+      );
       // Store panel reference for autonomous messaging
       currentPanel = panel;
 
@@ -485,17 +780,52 @@ export function activate(context: vscode.ExtensionContext) {
             case "chat":
               try {
                 const result = await handleCommand(message.content);
-                panel.webview.postMessage({
-                  type: "chat_response",
-                  content: result,
-                });
+                // Check if the result indicates command execution is happening
+                // If so, we don't send a chat_response immediately
+                // The processRayResponse function will handle UI updates
+                if (!result.includes("Ray is working on your request")) {
+                  // Check if the result is from sendToRayLoop by looking for the special marker
+                  // If it's from sendToRayLoop, it will already be handled by processRayResponse
+                  const isFromRayLoop = result.startsWith(
+                    "__RAY_RESPONSE_HANDLED__:"
+                  );
+
+                  // Only send chat_response if it's not from sendToRayLoop
+                  if (!isFromRayLoop) {
+                    panel.webview.postMessage({
+                      type: "chat_response",
+                      content: result,
+                    });
+                  } else {
+                    // Extract the actual response message
+                    const actualResponse = result.substring(
+                      "__RAY_RESPONSE_HANDLED__:".length
+                    );
+                    // The response has already been handled by processRayResponse, so we don't need to do anything
+                  }
+                }
               } catch (error) {
                 logError("Error handling chat command:", error);
                 panel.webview.postMessage({
-                  command: "chatError",
-                  error:
-                    error instanceof Error ? error.message : "Unknown error",
+                  type: "chat_response",
+                  content: `Error: ${
+                    error instanceof Error ? error.message : "Unknown error"
+                  }`,
                 });
+              }
+              break;
+            case "openFile":
+              try {
+                const filePath = message.filePath;
+                if (filePath) {
+                  const uri = vscode.Uri.file(filePath);
+                  await vscode.window.showTextDocument(uri);
+                }
+              } catch (error) {
+                logError("Error opening file:", error);
+                vscode.window.showErrorMessage(
+                  `Failed to open file: ${message.filePath}`
+                );
               }
               break;
             case "makeApiCall":

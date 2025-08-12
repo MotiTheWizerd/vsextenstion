@@ -22,12 +22,8 @@ export class RayDaemonTreeProvider implements vscode.TreeDataProvider<RayDaemonI
       return [];
     }
 
-    // Return root items
-    return [
-      new RayDaemonItem('Open Control Panel', 'Open RayDaemon Control Panel', 'raydaemon.openPanel'),
-      new RayDaemonItem('Status', `RayDaemon webhook running on port ${config.webhookPort}`, ''),
-      new RayDaemonItem('Webhook URL', `http://localhost:${config.webhookPort}/ray-webhook`, '')
-    ];
+    // Return empty array to show welcome view instead
+    return [];
   }
 
   getUptime(): string {
