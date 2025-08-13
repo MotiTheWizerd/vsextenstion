@@ -3,7 +3,7 @@ import * as path from 'path';
 import { promises as fs } from 'fs';
 import { FileOperationError } from './errors';
 import { findByExtension } from './findByExtension';
-import { expandExtensions } from '../../commandHandler';
+import { expandExtensions } from '../../handlers/utils';
 
 export interface RegexSearchResult {
   filePath: string;
