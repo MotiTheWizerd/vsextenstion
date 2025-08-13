@@ -243,6 +243,7 @@ async function executeCommandCallsAndSendResults(
             command: result.command,
             args: result.args,
             ok: result.ok,
+            output: result.output, // Include full output for file path extraction
             outputLength: result.output?.length || 0,
             error: result.error,
           })),

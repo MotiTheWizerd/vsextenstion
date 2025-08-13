@@ -1,7 +1,5 @@
-/**
- * Modern Chat UI for RayDaemon
- * Handles chat interface interactions with a modern design similar to Kiro/Claude
- */
+import ModernChatUI from './chat-ui.js';
+import MessageHandler from './message-handler.js';
 
 // Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {

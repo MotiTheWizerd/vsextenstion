@@ -107,7 +107,11 @@ export function getWebviewContent(
   
   // Get paths to webview assets
   const stylesPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/css/webview.css');
-  const scriptPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview.js');
+  const markdownParserPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview/markdown-parser.js');
+  const fileUtilsPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview/file-utils.js');
+  const chatUIPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview/chat-ui.js');
+  const messageHandlerPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview/message-handler.js');
+  const mainScriptPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview.js');
   
   // Read CSS and JS files
   let cssContent = '';
@@ -120,11 +124,22 @@ export function getWebviewContent(
     cssContent = '/* Error loading styles */';
   }
   
-  try {
-    jsContent = fs.readFileSync(scriptPath.fsPath, 'utf8');
-  } catch (error) {
-    console.error('Failed to load webview JS:', error);
-    jsContent = 'console.error("Failed to load webview JavaScript");';
+  // Load all JS files in order (dependencies first)
+  const jsFiles = [markdownParserPath, fileUtilsPath, chatUIPath, messageHandlerPath, mainScriptPath];
+  
+  for (const jsPath of jsFiles) {
+    try {
+      const fileContent = fs.readFileSync(jsPath.fsPath, 'utf8');
+      // Remove any import/export statements
+      const cleanContent = fileContent
+        .replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, '')
+        .replace(/^export\s+default\s+/gm, '')
+        .replace(/^export\s+\{[^}]*\}\s*;?\s*$/gm, '');
+      jsContent += '\n' + cleanContent;
+    } catch (error) {
+      console.error(`Failed to load ${jsPath.fsPath}:`, error);
+      jsContent += `\n// Error loading ${jsPath.fsPath}`;
+    }
   }
   
   // Add custom CSS and JS if provided
