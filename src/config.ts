@@ -12,6 +12,9 @@ export const config = {
   // Log level (debug, info, warn, error)
   logLevel: process.env.RAYDAEMON_LOG_LEVEL || "info",
 
+  // Auto-open modified files in editor (can be overridden by VS Code setting)
+  autoOpenModifiedFiles: true,
+
   // Add any headers your API needs (like authorization)
   apiHeaders: {
     "Content-Type": "application/json",

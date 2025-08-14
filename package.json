@@ -49,6 +49,16 @@
         }
       ]
     },
+    "configuration": {
+      "title": "RayDaemon",
+      "properties": {
+        "raydaemon.autoOpenModifiedFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically open files in the editor when they are modified by commands (write, append, read, replace)"
+        }
+      }
+    },
     "views": {
       "rayDaemonContainer": [
         {
@@ -60,7 +70,7 @@
     "viewsWelcome": [
       {
         "view": "rayDaemonDummyView",
-        "contents": "Welcome to RayDaemon!\n\n[Open Control Panel](command:raydaemon.openPanel)\n\nClick the button above to open the chat interface."
+        "contents": "Welcome to RayDaemon!\n\n[Open Chat Panel](command:raydaemon.openPanel)\n\nClick the button above to open the chat interface."
       }
     ]
   },

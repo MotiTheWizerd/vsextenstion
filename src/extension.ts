@@ -27,6 +27,91 @@ let currentPanel: vscode.WebviewPanel | undefined;
 // Track processed webhook requests to prevent duplicates
 const processedWebhookRequests = new Set<string>();
 
+// Store file contents before Ray modifies them for diff purposes
+const fileBackups = new Map<string, string>();
+
+/**
+ * Backup file content before Ray modifies it
+ */
+async function backupFileBeforeModification(filePath: string): Promise<void> {
+  try {
+    // Resolve relative paths
+    let resolvedPath = filePath;
+    if (!path.isAbsolute(filePath)) {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        resolvedPath = path.join(workspaceFolders[0].uri.fsPath, filePath);
+      }
+    }
+
+    // Only backup if we don't already have a backup for this file
+    if (!fileBackups.has(resolvedPath)) {
+      try {
+        const uri = vscode.Uri.file(resolvedPath);
+        const fileContent = await vscode.workspace.fs.readFile(uri);
+        const contentString = Buffer.from(fileContent).toString("utf8");
+        fileBackups.set(resolvedPath, contentString);
+        console.log(
+          `[RayDaemon] Backed up file before modification: ${resolvedPath} (${contentString.length} chars)`
+        );
+      } catch (readError) {
+        // File might not exist yet (for new files), that's okay
+        console.log(
+          `[RayDaemon] Could not backup file (might be new): ${resolvedPath}`,
+          readError
+        );
+      }
+    } else {
+      console.log(`[RayDaemon] File already backed up: ${resolvedPath}`);
+    }
+  } catch (error) {
+    console.error(`[RayDaemon] Error backing up file ${filePath}:`, error);
+  }
+}
+
+/**
+ * Get the file path from command arguments for file-modifying commands
+ */
+function getFilePathFromCommand(command: string, args: any[]): string | null {
+  if (!args || args.length === 0) {
+    return null;
+  }
+
+  switch (command) {
+    case "write":
+    case "append":
+    case "replace":
+      // First argument is the file path for these commands
+      return typeof args[0] === "string" ? args[0] : null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Clear old file backups to prevent memory leaks
+ * Keep only the most recent 50 backups
+ */
+function clearOldBackups(): void {
+  if (fileBackups.size > 50) {
+    const entries = Array.from(fileBackups.entries());
+    const toDelete = entries.slice(0, entries.length - 50);
+    toDelete.forEach(([key]) => {
+      fileBackups.delete(key);
+    });
+    console.log(`[RayDaemon] Cleared ${toDelete.length} old file backups`);
+  }
+}
+
+/**
+ * Clear all file backups (useful for testing or manual cleanup)
+ */
+function clearAllBackups(): void {
+  const count = fileBackups.size;
+  fileBackups.clear();
+  console.log(`[RayDaemon] Cleared all ${count} file backups`);
+}
+
 // Handle responses from Ray
 function handleRayPostResponse(rayResponse: any): void {
   console.log("[RayDaemon] *** handleRayPostResponse CALLED ***");
@@ -57,6 +142,120 @@ function handleRayPostResponse(rayResponse: any): void {
     "[RayDaemon] Processing webhook request, calling processRayResponse..."
   );
   processRayResponse(rayResponse);
+}
+
+// Auto-open files that were modified by commands
+async function autoOpenModifiedFiles(results: any[]): Promise<void> {
+  // Check if auto-open is enabled (VS Code setting takes precedence)
+  const autoOpenEnabled = vscode.workspace
+    .getConfiguration("raydaemon")
+    .get("autoOpenModifiedFiles", config.autoOpenModifiedFiles);
+  if (!autoOpenEnabled) {
+    console.log("[RayDaemon] Auto-open disabled by user setting");
+    return;
+  }
+
+  const filesToOpen = new Set<string>();
+
+  // Commands that modify files and should trigger auto-open
+  const fileModifyingCommands = ["write", "append", "replace", "read"];
+
+  results.forEach((result) => {
+    if (!result.ok || !fileModifyingCommands.includes(result.command)) {
+      return;
+    }
+
+    // Extract file path from command arguments based on command type
+    const args = result.args || [];
+    let filePath: string | null = null;
+
+    switch (result.command) {
+      case "write":
+      case "append":
+      case "read":
+        // First argument is the file path
+        filePath = args[0];
+        break;
+      case "replace":
+        // First argument is the file path for replace command
+        filePath = args[0];
+        break;
+      default:
+        // For other commands, try first argument
+        filePath = args[0];
+        break;
+    }
+
+    if (filePath && typeof filePath === "string") {
+      // Clean the file path
+      filePath = filePath.trim();
+
+      // Skip if it doesn't look like a file path
+      if (!filePath || (!filePath.includes("/") && !filePath.includes("\\"))) {
+        return;
+      }
+
+      // Resolve relative paths to absolute paths
+      if (!path.isAbsolute(filePath)) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0) {
+          filePath = path.join(workspaceFolders[0].uri.fsPath, filePath);
+        }
+      }
+
+      console.log(
+        `[RayDaemon] Marking file for auto-open: ${filePath} (from ${result.command} command)`
+      );
+      filesToOpen.add(filePath);
+    }
+  });
+
+  // Open each modified file (limit to avoid overwhelming the user)
+  const filesToOpenArray = Array.from(filesToOpen).slice(0, 5); // Max 5 files
+
+  if (filesToOpenArray.length > 0) {
+    console.log(
+      `[RayDaemon] Auto-opening ${filesToOpenArray.length} modified file(s)`
+    );
+  }
+
+  for (const filePath of filesToOpenArray) {
+    try {
+      console.log(`[RayDaemon] Auto-opening modified file: ${filePath}`);
+      const uri = vscode.Uri.file(filePath);
+
+      // Check if file exists before trying to open it
+      try {
+        await vscode.workspace.fs.stat(uri);
+      } catch (statError) {
+        console.log(
+          `[RayDaemon] File does not exist, skipping auto-open: ${filePath}`
+        );
+        continue;
+      }
+
+      await vscode.window.showTextDocument(uri, {
+        viewColumn: vscode.ViewColumn.One,
+        preview: false, // Don't open in preview mode
+        preserveFocus: false, // Give focus to the opened file
+      });
+
+      // Small delay between opening multiple files
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    } catch (error) {
+      console.error(`[RayDaemon] Failed to auto-open file: ${filePath}`, error);
+      // Don't show error messages for auto-open failures to avoid spam
+    }
+  }
+
+  // If we had to limit the files, log how many were skipped
+  if (filesToOpen.size > filesToOpenArray.length) {
+    console.log(
+      `[RayDaemon] Skipped auto-opening ${
+        filesToOpen.size - filesToOpenArray.length
+      } additional files to avoid overwhelming the editor`
+    );
+  }
 }
 
 // Execute command calls and send results back to Ray
@@ -115,64 +314,54 @@ async function executeCommandCallsAndSendResults(
       JSON.stringify(commandCalls, null, 2)
     );
 
-    // Show working indicator to user if panel exists
-    if (currentPanel) {
-      const toolNames = commandCalls.map((call) => {
-        const args = call.args || [];
-        switch (call.command) {
-          case "read":
-            const fileName = args[0] ? args[0].split(/[/\\]/).pop() : "file";
-            return `Reading ${fileName}`;
-          case "searchRegex":
-          case "searchText":
-            const searchTerm = args[0] || "text";
-            return `Searching "${
-              searchTerm.length > 15
-                ? searchTerm.substring(0, 15) + "..."
-                : searchTerm
-            }"`;
-          case "findSymbol":
-          case "findSymbolFromIndex":
-            const symbolName = args[0] || "symbol";
-            return `Finding ${symbolName}`;
-          case "loadIndex":
-            return "Loading index";
-          case "createIndex":
-            return "Creating index";
-          case "updateIndex":
-            return "Updating index";
-          case "ls":
-            const dirName = args[0]
-              ? args[0].split(/[/\\]/).pop() || args[0]
-              : "directory";
-            return `Listing ${dirName}`;
-          case "open":
-            const openFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
-            return `Opening ${openFile}`;
-          case "write":
-            const writeFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
-            return `Writing ${writeFile}`;
-          case "findByExtension":
-            const ext = args[0] || "files";
-            return `Finding ${ext} files`;
-          case "getAllDiagnostics":
-            return "Analyzing diagnostics";
-          case "getFileDiagnostics":
-            const diagFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
-            return `Checking ${diagFile}`;
-          default:
-            return call.command;
-        }
-      });
-
-      currentPanel?.webview.postMessage({
-        type: "toolStatus",
-        data: {
-          status: "working",
-          tools: toolNames,
-        },
-      });
-    }
+    // Generate tool names for display
+    const toolNames = commandCalls.map((call) => {
+      const args = call.args || [];
+      switch (call.command) {
+        case "read":
+          const fileName = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+          return `Reading ${fileName}`;
+        case "searchRegex":
+        case "searchText":
+          const searchTerm = args[0] || "text";
+          return `Searching "${
+            searchTerm.length > 15
+              ? searchTerm.substring(0, 15) + "..."
+              : searchTerm
+          }"`;
+        case "findSymbol":
+        case "findSymbolFromIndex":
+          const symbolName = args[0] || "symbol";
+          return `Finding ${symbolName}`;
+        case "loadIndex":
+          return "Loading index";
+        case "createIndex":
+          return "Creating index";
+        case "updateIndex":
+          return "Updating index";
+        case "ls":
+          const dirName = args[0]
+            ? args[0].split(/[/\\]/).pop() || args[0]
+            : "directory";
+          return `Listing ${dirName}`;
+        case "open":
+          const openFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+          return `Opening ${openFile}`;
+        case "write":
+          const writeFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+          return `Writing ${writeFile}`;
+        case "findByExtension":
+          const ext = args[0] || "files";
+          return `Finding ${ext} files`;
+        case "getAllDiagnostics":
+          return "Analyzing diagnostics";
+        case "getFileDiagnostics":
+          const diagFile = args[0] ? args[0].split(/[/\\]/).pop() : "file";
+          return `Checking ${diagFile}`;
+        default:
+          return call.command;
+      }
+    });
 
     // Add a small delay to ensure the "working" status is visible before tools start executing
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -205,9 +394,105 @@ async function executeCommandCallsAndSendResults(
       JSON.stringify(processedCalls, null, 2)
     );
 
-    const batch = await executeBatch(processedCalls, {
-      stopOnError: false,
-    });
+    // Show initial batch starting status
+    if (currentPanel) {
+      currentPanel?.webview.postMessage({
+        type: "toolStatus",
+        data: {
+          status: "starting",
+          tools: toolNames,
+          totalCount: processedCalls.length,
+          batchMode: true,
+        },
+      });
+    }
+
+    // Small delay to show starting status
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Execute commands individually but group the results
+    const results: any[] = [];
+    let anyExecuted = false;
+    let completedCount = 0;
+
+    for (let i = 0; i < processedCalls.length; i++) {
+      const call = processedCalls[i];
+      const toolName = toolNames[i];
+
+      // Send working status with current progress
+      if (currentPanel) {
+        currentPanel?.webview.postMessage({
+          type: "toolStatus",
+          data: {
+            status: "working",
+            tools: [toolName],
+            currentIndex: i + 1,
+            totalCount: processedCalls.length,
+            batchMode: true,
+          },
+        });
+      }
+
+      try {
+        // Backup file before modification if this is a file-modifying command
+        const filePath = getFilePathFromCommand(call.command, call.args);
+        if (filePath) {
+          await backupFileBeforeModification(filePath);
+        }
+
+        // Execute single command
+        const { executeOne } = createExecuteCommandFactory(commandHandlers);
+        const result = await executeOne(call);
+        results.push(result);
+        anyExecuted = true;
+        completedCount++;
+
+        // Small delay between commands
+        if (i < processedCalls.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+      } catch (error) {
+        const errorResult = {
+          command: call.command,
+          args: call.args || [],
+          ok: false,
+          error: String(error),
+        };
+        results.push(errorResult);
+        completedCount++;
+      }
+    }
+
+    // Auto-open files that were modified by commands
+    await autoOpenModifiedFiles(results);
+
+    // Send final batch completion status
+    if (currentPanel && anyExecuted) {
+      const successCount = results.filter((r) => r.ok).length;
+      const failedCount = results.length - successCount;
+
+      currentPanel?.webview.postMessage({
+        type: "toolStatus",
+        data: {
+          status: "completed",
+          tools: toolNames,
+          totalCount: processedCalls.length,
+          successCount,
+          failedCount,
+          results: results.map((result) => ({
+            command: result.command,
+            args: result.args,
+            ok: result.ok,
+            output: result.output,
+            outputLength: result.output?.length || 0,
+            error: result.error,
+          })),
+          batchMode: true,
+        },
+      });
+    }
+
+    const batch = { anyExecuted, results };
     logInfo("[Ray][command_calls] results:", batch);
     logInfo(
       "[Ray][command_calls] Detailed results:",
@@ -215,41 +500,12 @@ async function executeCommandCallsAndSendResults(
     );
 
     // Format command results for Ray API
-    const commandResults = batch.results.map((result) => ({
+    const commandResults = results.map((result) => ({
       command: result.command,
       status: result.ok ? "success" : "error",
       output: result.ok ? result.output : result.error,
       args: result.args,
     }));
-
-    // Send tool completion status to user IMMEDIATELY when tools finish
-    if (currentPanel && batch.anyExecuted && batch.results.length > 0) {
-      const successCount = batch.results.filter((r) => r.ok).length;
-      const failedCount = batch.results.length - successCount;
-
-      // Record the completion time to prevent duplicates
-      lastToolCompletionTime = Date.now();
-
-      // Show completion status immediately, don't wait for Ray API
-      currentPanel?.webview.postMessage({
-        type: "toolStatus",
-        data: {
-          status: "completed",
-          successCount,
-          failedCount,
-          totalCount: batch.results.length,
-          tools: commandCalls.map((call) => call.command), // Include tool names for better messaging
-          results: batch.results.map((result) => ({
-            command: result.command,
-            args: result.args,
-            ok: result.ok,
-            output: result.output, // Include full output for file path extraction
-            outputLength: result.output?.length || 0,
-            error: result.error,
-          })),
-        },
-      });
-    }
 
     console.log(
       "[RayDaemon] Sending command results back to Ray:",
@@ -262,6 +518,9 @@ async function executeCommandCallsAndSendResults(
       "[RayDaemon] Clearing isExecutingTools flag before sending to Ray"
     );
     isExecutingTools = false;
+
+    // Clear old backups to prevent memory leaks
+    clearOldBackups();
 
     // Send command results back to Ray automatically (in background, don't wait)
     try {
@@ -312,6 +571,9 @@ async function executeCommandCallsAndSendResults(
     );
     isExecutingTools = false;
 
+    // Clear old backups to prevent memory leaks
+    clearOldBackups();
+
     // Send error results back to Ray
     try {
       await sendCommandResultsToRay(content, errorResults);
@@ -326,22 +588,6 @@ async function executeCommandCallsAndSendResults(
         "[RayDaemon] Failed to send error results back to Ray:",
         rayError
       );
-    }
-
-    // Send tool error status to user if panel exists
-    if (currentPanel) {
-      currentPanel?.webview.postMessage({
-        type: "toolStatus",
-        data: {
-          status: "failed",
-          error: String(err),
-        },
-      });
-
-      currentPanel?.webview.postMessage({
-        type: "rayCommandResults",
-        data: { anyExecuted: false, results: [], error: String(err) },
-      });
     }
 
     // Tools execution completed with error
@@ -745,23 +991,49 @@ export function activate(context: vscode.ExtensionContext) {
 
   startRayDaemon();
 
+  // Auto-open the chat panel on startup
+  setTimeout(() => {
+    vscode.commands.executeCommand("raydaemon.openPanel");
+  }, 2000); // Longer delay to ensure VS Code is fully loaded
+
   context.subscriptions.push(
     vscode.commands.registerCommand("raydaemon.helloWorld", () => {
       vscode.window.showInformationMessage("Hello World from RayDaemon!");
     })
   );
 
+  // Create a persistent panel that always opens on the right
   context.subscriptions.push(
     vscode.commands.registerCommand("raydaemon.openPanel", () => {
+      // If panel already exists, just reveal it
+      if (currentPanel) {
+        currentPanel.reveal(vscode.ViewColumn.Two, false);
+        return;
+      }
+
+      // Create new panel with specific options to make it persistent
       const panel = vscode.window.createWebviewPanel(
         "rayDaemonPanel",
-        "RayDaemon",
-        vscode.ViewColumn.Two,
-        { enableScripts: true }
+        "RayDaemon Chat",
+        {
+          viewColumn: vscode.ViewColumn.Two,
+          preserveFocus: false,
+        },
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true, // Keep the panel alive when hidden
+          localResourceRoots: [
+            vscode.Uri.file(path.join(context.extensionPath, "media")),
+            vscode.Uri.file(path.join(context.extensionPath, "out/compiled")),
+          ],
+        }
       );
+
+      // Set icon
       panel.iconPath = vscode.Uri.file(
-        path.join(context.extensionPath, "media", "avatar.png") // Replace with your icon path
+        path.join(context.extensionPath, "media", "ray-icon.svg")
       );
+
       // Store panel reference for autonomous messaging
       currentPanel = panel;
 
@@ -781,28 +1053,15 @@ export function activate(context: vscode.ExtensionContext) {
             case "chat":
               try {
                 const result = await handleCommand(message.content);
-                // Check if the result indicates command execution is happening
-                // If so, we don't send a chat_response immediately
-                // The processRayResponse function will handle UI updates
                 if (!result.includes("Ray is working on your request")) {
-                  // Check if the result is from sendToRayLoop by looking for the special marker
-                  // If it's from sendToRayLoop, it will already be handled by processRayResponse
                   const isFromRayLoop = result.startsWith(
                     "__RAY_RESPONSE_HANDLED__:"
                   );
-
-                  // Only send chat_response if it's not from sendToRayLoop
                   if (!isFromRayLoop) {
                     panel.webview.postMessage({
                       type: "chat_response",
                       content: result,
                     });
-                  } else {
-                    // Extract the actual response message
-                    const actualResponse = result.substring(
-                      "__RAY_RESPONSE_HANDLED__:".length
-                    );
-                    // The response has already been handled by processRayResponse, so we don't need to do anything
                   }
                 }
               } catch (error) {
@@ -818,14 +1077,342 @@ export function activate(context: vscode.ExtensionContext) {
             case "openFile":
               try {
                 const filePath = message.filePath;
-                if (filePath) {
-                  const uri = vscode.Uri.file(filePath);
-                  await vscode.window.showTextDocument(uri);
+                console.log(
+                  `[RayDaemon] Received openFile request for: "${filePath}"`
+                );
+                console.log(`[RayDaemon] File path type: ${typeof filePath}`);
+                console.log(
+                  `[RayDaemon] File path length: ${filePath?.length}`
+                );
+
+                if (!filePath || typeof filePath !== "string") {
+                  throw new Error(`Invalid file path: ${filePath}`);
                 }
+
+                let resolvedPath = filePath.trim();
+
+                // If the path is relative, try to resolve it relative to workspace
+                if (!path.isAbsolute(resolvedPath)) {
+                  const workspaceFolders = vscode.workspace.workspaceFolders;
+                  if (workspaceFolders && workspaceFolders.length > 0) {
+                    resolvedPath = path.join(
+                      workspaceFolders[0].uri.fsPath,
+                      resolvedPath
+                    );
+                  }
+                }
+
+                console.log(`[RayDaemon] Resolved path: "${resolvedPath}"`);
+
+                // Check if file exists
+                try {
+                  await vscode.workspace.fs.stat(vscode.Uri.file(resolvedPath));
+                } catch (statError) {
+                  throw new Error(`File does not exist: ${resolvedPath}`);
+                }
+
+                const uri = vscode.Uri.file(resolvedPath);
+                await vscode.window.showTextDocument(uri, {
+                  viewColumn: vscode.ViewColumn.One,
+                });
+
+                console.log(
+                  `[RayDaemon] Successfully opened file: ${resolvedPath}`
+                );
               } catch (error) {
+                const errorMessage =
+                  error instanceof Error ? error.message : String(error);
                 logError("Error opening file:", error);
+                console.error(
+                  `[RayDaemon] Failed to open file: ${message.filePath}`,
+                  error
+                );
+
+                // Send error back to webview
+                panel.webview.postMessage({
+                  type: "rayResponse",
+                  data: {
+                    content: `RayDaemon Error: Error opening file: ${errorMessage}`,
+                    isWorking: false,
+                    isFinal: true,
+                  },
+                });
+
                 vscode.window.showErrorMessage(
-                  `Failed to open file: ${message.filePath}`
+                  `Failed to open file: ${message.filePath}. ${errorMessage}`
+                );
+              }
+              break;
+            case "showFileDiff":
+              try {
+                const filePath = message.filePath;
+                console.log(
+                  `[RayDaemon] Received showFileDiff request for: "${filePath}"`
+                );
+
+                if (!filePath || typeof filePath !== "string") {
+                  throw new Error(`Invalid file path: ${filePath}`);
+                }
+
+                let resolvedPath = filePath.trim();
+
+                // If the path is relative, try to resolve it relative to workspace
+                if (!path.isAbsolute(resolvedPath)) {
+                  const workspaceFolders = vscode.workspace.workspaceFolders;
+                  if (workspaceFolders && workspaceFolders.length > 0) {
+                    resolvedPath = path.join(
+                      workspaceFolders[0].uri.fsPath,
+                      resolvedPath
+                    );
+                  }
+                }
+
+                console.log(
+                  `[RayDaemon] Resolved diff path: "${resolvedPath}"`
+                );
+                const uri = vscode.Uri.file(resolvedPath);
+
+                // Check if file exists
+                try {
+                  await vscode.workspace.fs.stat(uri);
+                } catch (statError) {
+                  throw new Error(`File does not exist: ${resolvedPath}`);
+                }
+
+                // Check if we have a pre-Ray backup for this file
+                const backupKey = resolvedPath;
+                const preRayContent = fileBackups.get(backupKey);
+
+                let diffShown = false;
+
+                // Approach 1: Show Ray-specific diff if we have pre-Ray content
+                if (preRayContent !== undefined) {
+                  try {
+                    console.log(
+                      `[RayDaemon] Found pre-Ray backup for ${resolvedPath}, showing Ray-specific diff`
+                    );
+
+                    // Create a temporary file with pre-Ray content (most reliable approach)
+                    const tempDir = path.join(
+                      require("os").tmpdir(),
+                      "raydaemon"
+                    );
+
+                    // Ensure temp directory exists
+                    try {
+                      await vscode.workspace.fs.createDirectory(
+                        vscode.Uri.file(tempDir)
+                      );
+                    } catch (dirError) {
+                      // Directory might already exist, that's fine
+                      console.log(
+                        `[RayDaemon] Temp directory already exists or creation failed:`,
+                        dirError
+                      );
+                    }
+
+                    const tempFileName = `${path.basename(
+                      resolvedPath
+                    )}.before-ray-${Date.now()}`;
+                    const tempFilePath = path.join(tempDir, tempFileName);
+                    const tempUri = vscode.Uri.file(tempFilePath);
+
+                    // Write pre-Ray content to temp file
+                    await vscode.workspace.fs.writeFile(
+                      tempUri,
+                      Buffer.from(preRayContent, "utf8")
+                    );
+                    console.log(
+                      `[RayDaemon] Created temp file: ${tempFilePath}`
+                    );
+
+                    // Show diff between temp file and current file
+                    await vscode.commands.executeCommand(
+                      "vscode.diff",
+                      tempUri, // Before Ray (temp file)
+                      uri, // Current version
+                      `${path.basename(resolvedPath)} (Ray Changes)`,
+                      {
+                        viewColumn: vscode.ViewColumn.One,
+                        preview: false, // Don't open in preview mode
+                      }
+                    );
+
+                    diffShown = true;
+                    console.log(
+                      `[RayDaemon] Showed Ray-specific diff using temp file`
+                    );
+
+                    // Clean up temp file after a delay
+                    setTimeout(async () => {
+                      try {
+                        await vscode.workspace.fs.delete(tempUri);
+                        console.log(
+                          `[RayDaemon] Cleaned up temp file: ${tempFilePath}`
+                        );
+                      } catch (cleanupError) {
+                        console.log(
+                          `[RayDaemon] Failed to cleanup temp file:`,
+                          cleanupError
+                        );
+                      }
+                    }, 60000); // Clean up after 60 seconds (longer delay to allow viewing)
+                  } catch (rayDiffError) {
+                    console.log(
+                      `[RayDaemon] Ray-specific diff failed:`,
+                      rayDiffError
+                    );
+                  }
+                }
+
+                // Approach 2: Try to use Git extension API if Ray-specific diff failed
+                if (!diffShown) {
+                  try {
+                    const gitExtension =
+                      vscode.extensions.getExtension("vscode.git");
+                    if (gitExtension && gitExtension.isActive) {
+                      const git = gitExtension.exports.getAPI(1);
+                      const repo = git.getRepository(uri);
+                      if (repo) {
+                        // Use Git extension to show diff
+                        await vscode.commands.executeCommand(
+                          "git.openChange",
+                          uri
+                        );
+                        diffShown = true;
+                        console.log(
+                          `[RayDaemon] Showed git diff using Git extension`
+                        );
+                      }
+                    }
+                  } catch (gitError) {
+                    console.log(
+                      `[RayDaemon] Git extension approach failed:`,
+                      gitError
+                    );
+                  }
+                }
+
+                // Approach 3: Try SCM diff command
+                if (!diffShown) {
+                  try {
+                    await vscode.commands.executeCommand("scm.openChange", uri);
+                    diffShown = true;
+                    console.log(`[RayDaemon] Showed diff using SCM command`);
+                  } catch (scmError) {
+                    console.log(
+                      `[RayDaemon] SCM command approach failed:`,
+                      scmError
+                    );
+                  }
+                }
+
+                // Approach 4: Try to construct git diff manually
+                if (!diffShown) {
+                  try {
+                    const workspaceFolder =
+                      vscode.workspace.getWorkspaceFolder(uri);
+                    if (workspaceFolder) {
+                      const relativePath = path.relative(
+                        workspaceFolder.uri.fsPath,
+                        resolvedPath
+                      );
+
+                      // Try different git URI formats
+                      const gitUriFormats = [
+                        // Format 1: Standard git scheme
+                        vscode.Uri.parse(`git:${relativePath}?HEAD`),
+                        // Format 2: With proper authority
+                        vscode.Uri.parse(`git://${relativePath}?HEAD`),
+                        // Format 3: Using file scheme with git query
+                        vscode.Uri.file(resolvedPath).with({
+                          scheme: "git",
+                          query: "HEAD",
+                        }),
+                      ];
+
+                      for (const gitUri of gitUriFormats) {
+                        try {
+                          await vscode.commands.executeCommand(
+                            "vscode.diff",
+                            gitUri, // Previous version from git
+                            uri, // Current version
+                            `${path.basename(resolvedPath)} (Working Tree)`,
+                            {
+                              viewColumn: vscode.ViewColumn.One,
+                              preview: false,
+                            }
+                          );
+                          diffShown = true;
+                          console.log(
+                            `[RayDaemon] Showed diff using git URI format: ${gitUri.toString()}`
+                          );
+                          break;
+                        } catch (formatError) {
+                          console.log(
+                            `[RayDaemon] Git URI format failed: ${gitUri.toString()}`,
+                            formatError
+                          );
+                        }
+                      }
+                    }
+                  } catch (manualGitError) {
+                    console.log(
+                      `[RayDaemon] Manual git diff approach failed:`,
+                      manualGitError
+                    );
+                  }
+                }
+
+                // Approach 5: Fallback - open file and show SCM view
+                if (!diffShown) {
+                  console.log(
+                    `[RayDaemon] All diff approaches failed, falling back to opening file and SCM view`
+                  );
+                  await vscode.window.showTextDocument(uri, {
+                    viewColumn: vscode.ViewColumn.One,
+                    preview: false,
+                  });
+
+                  // Show the SCM view to help user see changes
+                  await vscode.commands.executeCommand("workbench.view.scm");
+
+                  // Show info message
+                  const message =
+                    preRayContent !== undefined
+                      ? `Opened ${path.basename(
+                          resolvedPath
+                        )}. This file was modified by Ray, but diff view failed. Check the Source Control view for changes.`
+                      : `Opened ${path.basename(
+                          resolvedPath
+                        )}. Check the Source Control view for changes.`;
+                  vscode.window.showInformationMessage(message);
+                }
+
+                console.log(
+                  `[RayDaemon] Successfully handled showFileDiff for: ${resolvedPath}`
+                );
+              } catch (error) {
+                const errorMessage =
+                  error instanceof Error ? error.message : String(error);
+                logError("Error showing file diff:", error);
+                console.error(
+                  `[RayDaemon] Failed to show diff for file: ${message.filePath}`,
+                  error
+                );
+
+                // Send error back to webview
+                panel.webview.postMessage({
+                  type: "rayResponse",
+                  data: {
+                    content: `RayDaemon Error: Error showing file diff: ${errorMessage}`,
+                    isWorking: false,
+                    isFinal: true,
+                  },
+                });
+
+                vscode.window.showErrorMessage(
+                  `Failed to show diff for file: ${message.filePath}. ${errorMessage}`
                 );
               }
               break;
@@ -856,18 +1443,12 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions
       );
 
-      // Create webview configuration
-      const webviewConfig = {
+      // Set the webview content
+      panel.webview.html = getWebviewContent(context, {
         showStatusBar: true,
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.file(path.join(context.extensionPath, "media")),
-          vscode.Uri.file(path.join(context.extensionPath, "out/compiled")),
-        ],
-      };
-
-      panel.webview.html = getWebviewContent(context, webviewConfig);
+        title: "RayDaemon Chat",
+        showChatInput: true,
+      });
     })
   );
 

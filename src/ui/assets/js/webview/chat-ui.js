@@ -22,7 +22,7 @@ class ModernChatUI {
   initializeUI() {
     // Update the HTML structure to match modern design
     this.updateChatInputStructure();
-    this.addWelcomeMessage();
+    // this.addWelcomeMessage(); // Removed welcome message
   }
 
   updateChatInputStructure() {
@@ -371,7 +371,7 @@ class ModernChatUI {
 
   clearChat() {
     this.chatMessages.innerHTML = "";
-    this.addWelcomeMessage();
+    // this.addWelcomeMessage(); // Removed welcome message
   }
 
   setStatus(status) {

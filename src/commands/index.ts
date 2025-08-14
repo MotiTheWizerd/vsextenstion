@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
-import { getWebviewContent } from '../ui/WebviewContent';
-import { handleCommand } from './commandHandler';
-import { config } from '../config';
+import * as vscode from "vscode";
+import { getWebviewContent } from "../ui/WebviewContent";
+import { handleCommand } from "./commandHandler";
+import { config } from "../config";
 
 export function registerCommands(context: vscode.ExtensionContext) {
   // Register hello world command
@@ -20,7 +20,7 @@ export function registerCommands(context: vscode.ExtensionContext) {
         vscode.ViewColumn.Two,
         { enableScripts: true }
       );
-      
+
       // Store panel reference for autonomous messaging
       (global as any).currentPanel = panel;
 
@@ -28,11 +28,11 @@ export function registerCommands(context: vscode.ExtensionContext) {
       panel.webview.onDidReceiveMessage(
         async (message) => {
           switch (message.type || message.command) {
-            case 'chat':
+            case "chat":
               const result = await handleCommand(message.content);
-              panel.webview.postMessage({ 
-                type: 'chat_response', 
-                content: result 
+              panel.webview.postMessage({
+                type: "chat_response",
+                content: result,
               });
               break;
             case "makeApiCall":
@@ -54,14 +54,14 @@ export function registerCommands(context: vscode.ExtensionContext) {
 
       // Create webview configuration
       const webviewConfig = {
-        title: 'RayDaemon Control Panel',
+        title: "RayDaemon Control Panel",
         showStatusBar: true,
-        initialStatus: 'Connected to RayDaemon',
+        initialStatus: "Connected to RayDaemon",
         showChatInput: true,
-        customCSS: '',
-        customJS: ''
+        customCSS: "",
+        customJS: "",
       };
-      
+
       panel.webview.html = getWebviewContent(context, webviewConfig);
     })
   );

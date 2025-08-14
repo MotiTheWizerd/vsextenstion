@@ -1,8 +1,6 @@
 import * as vscode from "vscode";
 import { sendToRayLoop } from "../rayLoop";
-import {
-  FileOperationError,
-} from "./commandMethods/fs";
+import { FileOperationError } from "./commandMethods/fs";
 import { generalHandlers } from "./handlers/generalHandlers";
 import { fileSystemHandlers } from "./handlers/fileSystemHandlers";
 import { navigationHandlers } from "./handlers/navigationHandlers";
