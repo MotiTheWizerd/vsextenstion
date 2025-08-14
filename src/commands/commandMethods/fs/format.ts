@@ -1,16 +1,22 @@
 import { FileEntry } from './types';
 
 export function formatFileList(entries: FileEntry[]): string {
-  return entries
-    .map(entry => {
-      const typeIcon = entry.type === 'directory' ? '📁' : '📄';
-      const size = entry.size !== undefined ? ` (${formatFileSize(entry.size)})` : '';
-      const modified = entry.modified ? ` - ${entry.modified.toLocaleString()}` : '';
-      // Use the full path instead of just the name
-      const displayPath = entry.path || entry.name;
-      return `${typeIcon} ${displayPath}${size}${modified}`;
-    })
-    .join('\n');
+  // For backward compatibility, return JSON string that can be parsed
+  const structuredData = {
+    type: 'fileList',
+    files: entries.map(entry => ({
+      name: entry.name,
+      path: entry.path || entry.name,
+      type: entry.type,
+      size: entry.size,
+      sizeFormatted: entry.size !== undefined ? formatFileSize(entry.size) : undefined,
+      modified: entry.modified?.toISOString(),
+      modifiedFormatted: entry.modified?.toLocaleString(),
+      icon: entry.type === 'directory' ? '📁' : '📄'
+    }))
+  };
+  
+  return JSON.stringify(structuredData, null, 2);
 }
 
 export function formatFileSize(bytes: number): string {

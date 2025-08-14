@@ -178,14 +178,20 @@ class MessageHandler {
         const fileCount = finalHasFileResults
           ? Math.max(extractedFiles.length, 1)
           : 0;
-        const displayCount = finalHasFileResults ? fileCount : totalCount;
-        const displayLabel = finalHasFileResults
+        
+        // Only show file count if we actually have files, otherwise show operation count
+        const shouldShowFileCount = finalHasFileResults && extractedFiles.length > 0;
+        const displayCount = shouldShowFileCount ? fileCount : totalCount;
+        const displayLabel = shouldShowFileCount
           ? fileCount === 1
             ? "file"
             : "files"
           : totalCount === 1
           ? "result"
           : "results";
+        
+        // Only make expandable if we have actual files to show
+        const shouldBeExpandable = finalHasFileResults && dropdownHtml && extractedFiles.length > 0;
 
         console.log(
           "[RayDaemon] Batch completion - finalHasFileResults:",
@@ -225,8 +231,8 @@ class MessageHandler {
               </div>
               <div class="tool-meta">
                 <div class="tool-count ${
-                  finalHasFileResults ? "expandable" : ""
-                }" data-expandable="${finalHasFileResults}">${successCount}/${totalCount}</div>
+                  shouldBeExpandable ? "expandable" : ""
+                }" data-expandable="${shouldBeExpandable}">${successCount}/${totalCount}</div>
               </div>
             </div>
             ${dropdownHtml}
@@ -240,8 +246,8 @@ class MessageHandler {
               </div>
               <div class="tool-meta">
                 <div class="tool-count ${
-                  finalHasFileResults ? "expandable" : ""
-                }" data-expandable="${finalHasFileResults}">${displayCount} ${displayLabel}</div>
+                  shouldBeExpandable ? "expandable" : ""
+                }" data-expandable="${shouldBeExpandable}">${displayCount} ${displayLabel}</div>
               </div>
             </div>
             ${dropdownHtml}
@@ -269,15 +275,20 @@ class MessageHandler {
           : "";
 
         // Get the actual count of files for display
-        const fileCount = hasFileResults
-          ? this.chatUI.fileUtils.extractFileList(results).length
-          : 0;
-        const displayCount = hasFileResults ? fileCount : 1;
-        const displayLabel = hasFileResults
+        const extractedFiles = hasFileResults ? this.chatUI.fileUtils.extractFileList(results) : [];
+        const fileCount = extractedFiles.length;
+        
+        // Only show file count if we actually have files, otherwise show operation count
+        const shouldShowFileCount = hasFileResults && fileCount > 0;
+        const displayCount = shouldShowFileCount ? fileCount : 1;
+        const displayLabel = shouldShowFileCount
           ? fileCount === 1
             ? "file"
             : "files"
           : "result";
+        
+        // Only make expandable if we have actual files to show
+        const shouldBeExpandable = hasFileResults && dropdownHtml && fileCount > 0;
 
         console.log(
           "[RayDaemon] Individual completion - hasFileResults:",
@@ -314,8 +325,10 @@ class MessageHandler {
               </div>
               <div class="tool-meta">
                 <div class="tool-count ${
-                  hasFileResults ? "expandable" : ""
-                }" data-expandable="${hasFileResults}">Error</div>
+                  hasFileResults && dropdownHtml ? "expandable" : ""
+                }" data-expandable="${!!(
+            hasFileResults && dropdownHtml
+          )}">Error</div>
               </div>
             </div>
             ${dropdownHtml}
@@ -331,8 +344,10 @@ class MessageHandler {
               </div>
               <div class="tool-meta">
                 <div class="tool-count ${
-                  hasFileResults ? "expandable" : ""
-                }" data-expandable="${hasFileResults}">${displayCount} ${displayLabel}</div>
+                  hasFileResults && dropdownHtml ? "expandable" : ""
+                }" data-expandable="${!!(
+            hasFileResults && dropdownHtml
+          )}">${displayCount} ${displayLabel}</div>
               </div>
             </div>
             ${dropdownHtml}
@@ -378,49 +393,51 @@ class MessageHandler {
 
       this.chatUI.chatMessages.appendChild(messageDiv);
 
-      // Add click handler for expandable tool counts
-      const expandableCount = messageDiv.querySelector(
-        ".tool-count.expandable"
-      );
-      const anyToolCount = messageDiv.querySelector(".tool-count"); // Fallback to any tool-count
-
-      console.log("[RayDaemon] Looking for expandable count:", expandableCount);
-      console.log("[RayDaemon] Any tool count found:", anyToolCount);
-
-      const targetElement = expandableCount || anyToolCount;
-
-      if (targetElement) {
-        console.log(
-          "[RayDaemon] Adding click handler to:",
-          targetElement.className
+      // Only add click handler for completed status with valid dropdowns
+      if (status === "completed") {
+        const expandableCount = messageDiv.querySelector(
+          ".tool-count.expandable"
         );
-        targetElement.addEventListener("click", (e) => {
-          console.log(
-            "[RayDaemon] Tool count clicked!",
-            targetElement.textContent
-          );
-          e.preventDefault();
-          e.stopPropagation();
-
-          // Check if this element should be expandable
-          const dropdown = messageDiv.querySelector(".tool-dropdown");
-          if (dropdown) {
-            console.log("[RayDaemon] Found dropdown, toggling...");
-            this.chatUI.fileUtils.toggleToolDropdown(messageDiv);
-          } else {
-            console.log("[RayDaemon] No dropdown found in message");
-          }
-        });
-
-        // Also add visual indication that it's clickable if it has a dropdown
         const dropdown = messageDiv.querySelector(".tool-dropdown");
-        if (dropdown && !targetElement.classList.contains("expandable")) {
-          targetElement.classList.add("expandable");
-          targetElement.setAttribute("data-expandable", "true");
-          console.log("[RayDaemon] Made tool count expandable");
+
+        console.log(
+          "[RayDaemon] Looking for expandable count:",
+          expandableCount
+        );
+        console.log("[RayDaemon] Found dropdown:", !!dropdown);
+
+        // Only make it clickable if we have both an expandable count and a dropdown with content
+        if (expandableCount && dropdown) {
+          console.log("[RayDaemon] Adding click handler to expandable count");
+
+          expandableCount.addEventListener("click", (e) => {
+            console.log(
+              "[RayDaemon] Tool count clicked!",
+              expandableCount.textContent
+            );
+            e.preventDefault();
+            e.stopPropagation();
+            this.chatUI.fileUtils.toggleToolDropdown(messageDiv);
+          });
+
+          // Add visual cursor pointer for clickable elements
+          expandableCount.style.cursor = "pointer";
+          console.log(
+            "[RayDaemon] Made tool count clickable with pointer cursor"
+          );
+        } else {
+          console.log(
+            "[RayDaemon] No valid expandable count or dropdown found"
+          );
+
+          // Remove expandable class if no dropdown content
+          const anyToolCount = messageDiv.querySelector(".tool-count");
+          if (anyToolCount && !dropdown) {
+            anyToolCount.classList.remove("expandable");
+            anyToolCount.removeAttribute("data-expandable");
+            anyToolCount.style.cursor = "default";
+          }
         }
-      } else {
-        console.log("[RayDaemon] No tool count found in message");
       }
 
       this.chatUI.scrollToBottom();
@@ -545,6 +562,15 @@ class MessageHandler {
       .sort(([, a], [, b]) => b.count - a.count)[0];
 
     if (!primaryCategory) {
+      // Try to be more specific based on tools even without categories
+      if (tools && tools.length > 0) {
+        const toolNames = tools.slice(0, 2).join(", ");
+        if (tools.length > 2) {
+          return `Executed ${toolNames} and ${tools.length - 2} other command${tools.length - 2 > 1 ? "s" : ""}`;
+        } else {
+          return `Executed ${toolNames}`;
+        }
+      }
       return `Completed ${totalCount} operation${totalCount > 1 ? "s" : ""}`;
     }
 
@@ -796,7 +822,7 @@ class MessageHandler {
     const hasFileInResults =
       results &&
       results.some((result) => {
-        if (!result || !result.ok) return false;
+        if (!result || !result.ok) {return false;}
 
         // Check command arguments
         if (result.args && result.args.length > 0) {
@@ -876,13 +902,43 @@ class MessageHandler {
 
   generateFileModificationMessage(categoryData, hasMultiple, totalCount) {
     const fileCount = categoryData.count;
+    
+    // Extract file names from the results
+    const modifiedFiles = [];
+    categoryData.results.forEach((result) => {
+      if (result && result.ok && result.args && result.args.length > 0) {
+        const filePath = result.args[0];
+        const fileName = filePath.split(/[/\\]/).pop() || filePath;
+        modifiedFiles.push(fileName);
+      }
+    });
 
-    if (hasMultiple) {
-      return `Modified ${fileCount} file${fileCount > 1 ? "s" : ""} + ${
-        totalCount - fileCount
-      } other operation${totalCount - fileCount > 1 ? "s" : ""}`;
+    if (modifiedFiles.length === 0) {
+      // Fallback to generic message
+      if (hasMultiple) {
+        return `Modified ${fileCount} file${fileCount > 1 ? "s" : ""} + ${
+          totalCount - fileCount
+        } other operation${totalCount - fileCount > 1 ? "s" : ""}`;
+      } else {
+        return `Modified ${fileCount} file${fileCount > 1 ? "s" : ""}`;
+      }
+    }
+
+    // Create specific message with file names
+    if (modifiedFiles.length === 1) {
+      const message = `${modifiedFiles[0]} was modified`;
+      if (hasMultiple) {
+        return `${message} + ${totalCount - fileCount} other operation${totalCount - fileCount > 1 ? "s" : ""}`;
+      }
+      return message;
     } else {
-      return `Modified ${fileCount} file${fileCount > 1 ? "s" : ""}`;
+      const firstFile = modifiedFiles[0];
+      const remainingCount = modifiedFiles.length - 1;
+      const message = `${firstFile} was modified and ${remainingCount}+ other${remainingCount > 1 ? "s" : ""}`;
+      if (hasMultiple) {
+        return `${message} + ${totalCount - fileCount} other operation${totalCount - fileCount > 1 ? "s" : ""}`;
+      }
+      return message;
     }
   }
 
@@ -969,13 +1025,23 @@ class MessageHandler {
 
   generateListingMessage(categoryData, hasMultiple, totalCount) {
     const dirCount = categoryData.count;
+    
+    // Try to get the directory name from the first result
+    let dirName = "";
+    if (categoryData.results && categoryData.results.length > 0) {
+      const firstResult = categoryData.results[0];
+      if (firstResult && firstResult.args && firstResult.args.length > 0) {
+        const dirPath = firstResult.args[0] || ".";
+        dirName = dirPath === "." ? "current directory" : dirPath.split(/[/\\]/).pop() || dirPath;
+      }
+    }
 
+    const baseMessage = dirName ? `Listed ${dirName}` : `Listed ${dirCount} director${dirCount > 1 ? "ies" : "y"}`;
+    
     if (hasMultiple) {
-      return `Listed ${dirCount} director${dirCount > 1 ? "ies" : "y"} + ${
-        totalCount - dirCount
-      } other operation${totalCount - dirCount > 1 ? "s" : ""}`;
+      return `${baseMessage} + ${totalCount - dirCount} other operation${totalCount - dirCount > 1 ? "s" : ""}`;
     } else {
-      return `Listed ${dirCount} director${dirCount > 1 ? "ies" : "y"}`;
+      return baseMessage;
     }
   }
 

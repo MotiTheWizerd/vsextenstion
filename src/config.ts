@@ -1,7 +1,7 @@
 // Configuration for RayDaemon API integration
 export const config = {
   // Ray's main API endpoint - where all messages go (both user messages and command results)
-  apiEndpoint: "http://localhost:8000/api/messages",
+  apiEndpoint: "http://localhost:8000/api/vscode_user_message",
 
   // Port for the webhook server that Ray can POST back to
   webhookPort: 3001,

@@ -117,7 +117,7 @@ export async function searchText(
             const lineMatches = Array.from(line.matchAll(searchRegex));
 
             for (const match of lineMatches) {
-              if (matches.length >= maxMatches) break;
+              if (matches.length >= maxMatches) {break;}
 
               const column = match.index || 0;
               const matchText = match[0];
@@ -207,70 +207,46 @@ export function formatTextSearchResults(
   const { showContext = true, maxContextLength = 100, groupByFile = true } = options;
 
   if (results.length === 0) {
-    return `No matches found for "${query}"`;
+    return JSON.stringify({
+      type: 'searchResults',
+      query,
+      totalMatches: 0,
+      totalFiles: 0,
+      files: []
+    }, null, 2);
   }
 
   const totalMatches = results.reduce((sum, result) => sum + result.totalMatches, 0);
-  const lines: string[] = [];
   
-  lines.push(`🔍 **Found ${totalMatches} matches in ${results.length} files for "${query}"**\n`);
-
-  if (groupByFile) {
-    // Group by file
-    for (const result of results) {
-      lines.push(`📁 **${result.relativePath}** (${result.totalMatches} matches)`);
-      
-      for (const match of result.matches) {
-        const location = `${match.line + 1}:${match.column + 1}`;
-        let contextDisplay = '';
-        
-        if (showContext) {
-          const before = match.context.before.length > maxContextLength 
+  // Create structured data
+  const structuredData = {
+    type: 'searchResults',
+    query,
+    totalMatches,
+    totalFiles: results.length,
+    files: results.map(result => ({
+      name: result.relativePath.split(/[/\\]/).pop() || result.relativePath,
+      path: result.filePath,
+      relativePath: result.relativePath,
+      matchCount: result.totalMatches,
+      icon: '📄',
+      matches: result.matches.map(match => ({
+        line: match.line + 1, // Convert to 1-based line numbers
+        column: match.column + 1, // Convert to 1-based column numbers
+        text: match.context.match,
+        contextBefore: showContext ? (
+          match.context.before.length > maxContextLength 
             ? '...' + match.context.before.slice(-maxContextLength)
-            : match.context.before;
-          const after = match.context.after.length > maxContextLength
+            : match.context.before
+        ) : '',
+        contextAfter: showContext ? (
+          match.context.after.length > maxContextLength
             ? match.context.after.slice(0, maxContextLength) + '...'
-            : match.context.after;
-          
-          contextDisplay = ` - \`${before}**${match.context.match}**${after}\``;
-        }
-        
-        lines.push(`   Line ${location}${contextDisplay}`);
-      }
-      lines.push('');
-    }
-  } else {
-    // Flat list of all matches
-    const allMatches: Array<TextMatch & { filePath: string; relativePath: string }> = [];
-    
-    for (const result of results) {
-      for (const match of result.matches) {
-        allMatches.push({
-          ...match,
-          filePath: result.filePath,
-          relativePath: result.relativePath
-        });
-      }
-    }
+            : match.context.after
+        ) : ''
+      }))
+    }))
+  };
 
-    for (const match of allMatches) {
-      const location = `${match.relativePath}:${match.line + 1}:${match.column + 1}`;
-      let contextDisplay = '';
-      
-      if (showContext) {
-        const before = match.context.before.length > maxContextLength 
-          ? '...' + match.context.before.slice(-maxContextLength)
-          : match.context.before;
-        const after = match.context.after.length > maxContextLength
-          ? match.context.after.slice(0, maxContextLength) + '...'
-          : match.context.after;
-        
-        contextDisplay = ` - \`${before}**${match.context.match}**${after}\``;
-      }
-      
-      lines.push(`📍 ${location}${contextDisplay}`);
-    }
-  }
-
-  return lines.join('\n');
+  return JSON.stringify(structuredData, null, 2);
 }
