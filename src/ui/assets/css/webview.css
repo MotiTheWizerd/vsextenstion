@@ -13,6 +13,8 @@
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   --radius: 12px;
   --radius-small: 8px;
+  --message-font-size: 13px; /* Standard font size for all messages */
+  --message-font-weight: 500; /* Standard font weight for all messages */
 }
 
 * {
@@ -124,8 +126,8 @@ body {
   word-wrap: break-word;
   line-height: 1.6;
   box-shadow: var(--shadow);
-  font-size: 15px; /* Increased font size */
-  font-weight: 400; /* Ensure normal weight */
+  font-size: var(--message-font-size); /* Use standard font size */
+  font-weight: var(--message-font-weight); /* Use standard font weight */
 }
 
 .message.user .message-content {
@@ -705,7 +707,8 @@ body {
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: var(--message-font-size);
+  font-weight: var(--message-font-weight);
   font-weight: 500;
   max-width: fit-content;
   margin: 0; /* Remove auto centering */
@@ -774,8 +777,8 @@ body {
 
 .tool-text {
   flex: 1;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--message-font-size);
+  font-weight: var(--message-font-weight);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -783,8 +786,8 @@ body {
 }
 
 .tool-title {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: var(--message-font-weight);
+  font-size: var(--message-font-size);
   line-height: 1.2;
 }
 
