@@ -1,0 +1,33 @@
+/* RayDaemon Chat Panel Customization */
+[aria-label="RayDaemon Chat"] .title-actions {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    padding-right: 12px;
+}
+
+/* Settings gear icon */
+[aria-label="RayDaemon Chat"] .title-actions::before {
+    font-family: "codicon";
+    content: "\eab2"; /* Settings gear icon */
+    font-size: 14px;
+    color: var(--vscode-titleBar-activeForeground);
+}
+
+/* Additional action icons */
+[aria-label="RayDaemon Chat"] .title-actions::after {
+    font-family: "codicon";
+    content: "\eb51\00a0\ea76\00a0\ea76"; /* More, Maximize, Close icons */
+    font-size: 14px;
+    color: var(--vscode-titleBar-activeForeground);
+    letter-spacing: 8px;
+}
+
+/* Hover effects */
+[aria-label="RayDaemon Chat"] .title-actions::before:hover,
+[aria-label="RayDaemon Chat"] .title-actions::after:hover {
+    color: var(--vscode-titleBar-activeForeground);
+    opacity: 0.8;
+    cursor: pointer;
+}

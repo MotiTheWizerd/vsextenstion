@@ -4,31 +4,55 @@ class FileUtils {
   }
 
   hasFileResults(results) {
-    console.log('[RayDaemon] hasFileResults called with:', results);
-    
     if (!results || results.length === 0) {
-      console.log('[RayDaemon] hasFileResults: No results or empty array');
       return false;
     }
 
-    // Extract actual file list and check if we have meaningful files
     const fileObjects = this.extractFileList(results);
-    console.log('[RayDaemon] hasFileResults: extracted file objects:', fileObjects);
-    
-    // Only return true if we have at least one valid file
-    const hasFiles = fileObjects.length > 0;
-    console.log('[RayDaemon] hasFileResults: returning', hasFiles);
-    return hasFiles;
+    return fileObjects && fileObjects.length > 0;
   }
 
   createFileDropdown(results, totalCount) {
     const fileObjects = this.extractFileList(results);
-    if (fileObjects.length === 0) {
+    if (!fileObjects || fileObjects.length === 0) {
       return "";
     }
 
-    const displayFiles = fileObjects.slice(0, 10); // Show max 10 files
-    const hasMore = fileObjects.length > 10;
+    // Process all messages and commands
+    let messages = [];
+    let statusMessages = new Set();
+
+    // First collect all messages
+    results.forEach(result => {
+      if (result.message) {
+        messages.push(result.message);
+      }
+      if (result.status && !statusMessages.has(result.status)) {
+        messages.push(result.status);
+        statusMessages.add(result.status);
+      }
+      if (result.command) {
+        const cmdMsg = result.args 
+          ? `${result.command} ${result.args.join(' ')}`
+          : result.command;
+        messages.push(cmdMsg);
+        
+        if (result.output && typeof result.output === 'string' && result.output.trim()) {
+          messages.push(result.output.trim());
+        }
+      }
+    });
+
+    // Show all files
+    const displayFiles = fileObjects;
+    const hasMore = false;
+
+    // Create the command summary with all messages
+    const commandSummary = messages.length > 0
+      ? `<div class="tool-command-info">
+          ${messages.map(msg => `<div class="tool-message">${msg}</div>`).join('')}
+        </div>`
+      : "";
 
     const fileItems = displayFiles
       .map((fileObj) => {
@@ -92,7 +116,7 @@ class FileUtils {
         return `
         <div class="tool-file-item" data-file-path="${escapedPath}">
           <div class="tool-file-content">
-            <div class="tool-file-icon">${fileObj.icon}</div>
+            <div class="tool-file-icon ${FileIconUtils.getFileIcon(fileObj.name)}"></div>
             <div class="tool-file-info">
               <div class="tool-file-name">${escapedFileName}${escapedMetadata}</div>
               ${
@@ -116,6 +140,7 @@ class FileUtils {
 
     const dropdownHtml = `
       <div class="tool-dropdown">
+        ${commandSummary}
         <div class="tool-file-list">
           ${fileItems}
           ${moreIndicator}
@@ -136,12 +161,30 @@ class FileUtils {
     const fileObjects = [];
     const processedPaths = new Set(); // Track processed paths to avoid duplicates
 
+    if (!Array.isArray(results)) {
+      return fileObjects;
+    }
+
+    // First pass - collect and process any messages or status updates
+    results.forEach(result => {
+      if (result && (result.message || result.status)) {
+        // Store message/status for display
+        fileObjects._messages = fileObjects._messages || [];
+        if (result.message) {
+          fileObjects._messages.push(result.message);
+        }
+        if (result.status) {
+          fileObjects._messages.push(result.status);
+        }
+      }
+    });
+
+    // Second pass - process files and commands
     results.forEach((result) => {
+      if (!result) { return; }
+
       // For file modification commands, extract file path from arguments
-      if (
-        result.ok &&
-        ["write", "append", "replace"].includes(result.command)
-      ) {
+      if (result.ok && ["write", "append", "replace"].includes(result.command)) {
         const args = result.args || [];
         if (args.length > 0 && typeof args[0] === "string") {
           let filePath = args[0].trim();
@@ -470,51 +513,87 @@ class FileUtils {
   }
 
   getFileIcon(filePath) {
-    const fileName = filePath.split(/[/\\]/).pop() || "";
-    const extension = fileName.split(".").pop()?.toLowerCase() || "";
+    const extension = filePath.split('.').pop()?.toLowerCase();
+    const fileName = filePath.split(/[/\\]/).pop()?.toLowerCase();
 
-    // File type icons
+    // Map extensions to VS Code Codicon names
     const iconMap = {
-      js: "📄",
-      ts: "📘",
-      jsx: "⚛️",
-      tsx: "⚛️",
-      html: "🌐",
-      css: "🎨",
-      scss: "🎨",
-      sass: "🎨",
-      json: "📋",
-      md: "📝",
-      txt: "📄",
-      py: "🐍",
-      java: "☕",
-      cpp: "⚙️",
-      c: "⚙️",
-      php: "🐘",
-      rb: "💎",
-      go: "🐹",
-      rs: "🦀",
-      vue: "💚",
-      xml: "📄",
-      yml: "⚙️",
-      yaml: "⚙️",
-      png: "🖼️",
-      jpg: "🖼️",
-      jpeg: "🖼️",
-      gif: "🖼️",
-      svg: "🎨",
-      pdf: "📕",
-      zip: "📦",
-      tar: "📦",
-      gz: "📦",
+      // Programming Languages
+      js: 'javascript',
+      jsx: 'react',
+      ts: 'typescript',
+      tsx: 'react',
+      py: 'symbol-misc', // Python
+      java: 'symbol-misc',
+      cpp: 'symbol-misc',
+      c: 'symbol-misc',
+      cs: 'symbol-misc',
+      go: 'symbol-misc',
+      rs: 'symbol-misc',
+      rb: 'symbol-misc',
+      php: 'symbol-misc',
+      
+      // Web Technologies
+      html: 'html',
+      css: 'symbol-color',
+      scss: 'symbol-color',
+      sass: 'symbol-color',
+      less: 'symbol-color',
+      json: 'json',
+      xml: 'code',
+      md: 'markdown',
+      
+      // Config Files
+      env: 'settings-gear',
+      yml: 'symbol-misc',
+      yaml: 'symbol-misc',
+      toml: 'settings-gear',
+      ini: 'settings-gear',
+      conf: 'settings-gear',
+      config: 'settings-gear',
+      
+      // Documentation
+      pdf: 'file-pdf',
+      doc: 'file-word',
+      docx: 'file-word',
+      txt: 'file-text',
+      
+      // Images
+      png: 'file-media',
+      jpg: 'file-media',
+      jpeg: 'file-media',
+      gif: 'file-media',
+      svg: 'file-media',
+      
+      // Archives
+      zip: 'file-zip',
+      rar: 'file-zip',
+      tar: 'file-zip',
+      gz: 'file-zip'
     };
+
+    // Special cases based on filename
+    if (fileName === 'package.json') { return 'codicon-package'; }
+    if (fileName === '.gitignore') { return 'codicon-git'; }
+    if (fileName === 'readme.md') { return 'codicon-book'; }
+    if (fileName === 'license') { return 'codicon-law'; }
+    if (fileName === 'dockerfile') { return 'codicon-docker'; }
+    
+    // Check if it's a directory
+    if (!extension || filePath.endsWith('/') || filePath.endsWith('\\')) {
+      return 'codicon-folder';
+    }
+    
+    // Default to file icon if no match
+    return `codicon-${iconMap[extension] || 'file'}`;
+    
 
     // Check if it's a directory (no extension or ends with /)
     if (!extension || filePath.endsWith("/") || filePath.endsWith("\\")) {
-      return "📁";
+      return 'codicon-folder';
     }
 
-    return iconMap[extension] || "📄";
+    return `codicon-${iconMap[extension] || 'file'}`;
   }
 
   toggleToolDropdown(messageDiv) {

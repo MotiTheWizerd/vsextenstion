@@ -107,6 +107,7 @@ export function getWebviewContent(
   
   // Get paths to webview assets
   const stylesPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/css/webview.css');
+  const customPanelStylesPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/css/custom-panel.css');
   const markdownParserPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview/markdown-parser.js');
   const fileUtilsPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview/file-utils.js');
   const chatUIPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/webview/chat-ui.js');
@@ -119,13 +120,37 @@ export function getWebviewContent(
   
   try {
     cssContent = fs.readFileSync(stylesPath.fsPath, 'utf8');
+    cssContent += '\n' + fs.readFileSync(customPanelStylesPath.fsPath, 'utf8');
   } catch (error) {
     console.error('Failed to load webview CSS:', error);
     cssContent = '/* Error loading styles */';
   }
+
+  // Ensure Codicons are available inside the webview. The package's CSS references a relative
+  // URL to the font file which won't resolve when we inline styles, so load the codicon.css and
+  // rewrite the font URL to a webview resource URI that the webview can load.
+  try {
+    const codiconCssPath = path.join(extensionContext.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css');
+    const codiconFontPath = path.join(extensionContext.extensionPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.ttf');
+    let codiconCss = fs.readFileSync(codiconCssPath, 'utf8');
+    // Read the font file and encode as base64 so the webview can load it without CORS issues
+    try {
+      const fontBuffer = fs.readFileSync(codiconFontPath);
+      const fontBase64 = fontBuffer.toString('base64');
+      const dataUri = `url('data:font/truetype;base64,${fontBase64}')`;
+      codiconCss = codiconCss.replace(/url\((?:['"])?\.\/codicon\.ttf[^)]*\)/g, dataUri);
+    } catch (fontErr) {
+      console.error('Failed to inline codicon.ttf as base64:', fontErr);
+    }
+    // Prepend codicon CSS so font-face and icon classes are available to other styles
+    cssContent = codiconCss + '\n' + cssContent;
+  } catch (err) {
+    console.error('Failed to load codicon assets for webview:', err);
+  }
   
   // Load all JS files in order (dependencies first)
-  const jsFiles = [markdownParserPath, fileUtilsPath, chatUIPath, messageHandlerPath, mainScriptPath];
+  const panelControlsPath = getWebviewResourceUri(extensionContext, 'src/ui/assets/js/panel-controls.js');
+  const jsFiles = [markdownParserPath, fileUtilsPath, chatUIPath, messageHandlerPath, panelControlsPath, mainScriptPath];
   
   for (const jsPath of jsFiles) {
     try {
@@ -158,12 +183,19 @@ export function getWebviewContent(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(mergedConfig.title)}</title>
-    <style>${cssContent}</style>
+  <style>${cssContent}</style>
   </head>
   <body>
     <div class="container">
-      <div class="header">
-        <h2>⚔️😈 RayDaemon</h2>
+      <div class="custom-panel-header">
+        <div class="custom-panel-title">
+          <span>Agent Tab</span>
+        </div>
+        <div class="custom-panel-actions">
+          <button class="custom-panel-action codicon-gear" title="Settings"></button>
+          <button class="custom-panel-action codicon-ellipsis" title="More Actions"></button>
+        
+        </div>
       </div>
       
       <div class="chat-container">

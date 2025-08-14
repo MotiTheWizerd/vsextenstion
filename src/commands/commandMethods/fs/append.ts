@@ -9,7 +9,7 @@ export async function appendToFile(filePath: string, content: string, encoding: 
     await fs.mkdir(path.dirname(abs), { recursive: true });
     await fs.appendFile(abs, content, { encoding });
   } catch (error) {
-    if (error instanceof FileOperationError) throw error;
+    if (error instanceof FileOperationError) {throw error;}
     throw new FileOperationError(
       `Failed to append file: ${filePath} — ${error instanceof Error ? error.message : String(error)}`,
       'EAPPEND',

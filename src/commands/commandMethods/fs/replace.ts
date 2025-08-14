@@ -35,7 +35,7 @@ export async function replaceInFile(
     }
     return count;
   } catch (error) {
-    if (error instanceof FileOperationError) throw error;
+    if (error instanceof FileOperationError) {throw error;}
     throw new FileOperationError(
       `Failed to replace in file: ${filePath} — ${error instanceof Error ? error.message : String(error)}`,
       'EREPLACE',

@@ -120,7 +120,7 @@ export async function searchRegex(
             const globalMatches = Array.from(content.matchAll(searchRegex));
             
             for (const match of globalMatches) {
-              if (matches.length >= maxMatches) break;
+              if (matches.length >= maxMatches) {break;}
 
               const matchStart = match.index || 0;
               const matchText = match[0];
@@ -164,7 +164,7 @@ export async function searchRegex(
               const lineMatches = Array.from(line.matchAll(searchRegex));
 
               for (const match of lineMatches) {
-                if (matches.length >= maxMatches) break;
+                if (matches.length >= maxMatches) {break;}
 
                 const column = match.index || 0;
                 const matchText = match[0];

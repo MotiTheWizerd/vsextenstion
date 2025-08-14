@@ -1,5 +1,6 @@
 import ModernChatUI from './chat-ui.js';
 import MessageHandler from './message-handler.js';
+import { FileIconUtils } from './file-icons.js';
 
 // Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {

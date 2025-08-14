@@ -9,6 +9,7 @@ import {
   getGlobalDiagnosticWatcher,
   parseSeverityString,
 } from "../commandMethods/diagnostics";
+import { safeUriFromString } from "../../utils/uri";
 
 export const diagnosticHandlers: CommandRegistry = {
   getDiagnostics: {
@@ -136,7 +137,7 @@ export const diagnosticHandlers: CommandRegistry = {
               diagnosticCount++;
               if (diagnosticCount === openN) {
                 // Open the file and go to the diagnostic location
-                const uri = vscode.Uri.parse(fileInfo.uri);
+                const uri = safeUriFromString(fileInfo.uri);
                 const doc = await vscode.workspace.openTextDocument(uri);
                 await vscode.window.showTextDocument(doc, {
                   selection: diagnostic.range,
@@ -265,7 +266,7 @@ export const diagnosticHandlers: CommandRegistry = {
           );
           const diagnostic = fileInfo.diagnostics[diagnosticIndex];
 
-          const uri = vscode.Uri.parse(fileInfo.uri);
+          const uri = safeUriFromString(fileInfo.uri);
           const doc = await vscode.workspace.openTextDocument(uri);
           await vscode.window.showTextDocument(doc, {
             selection: diagnostic.range,

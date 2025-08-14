@@ -1,0 +1,87 @@
+/* Hide all VS Code tab headers for our webview */
+.monaco-workbench .part.editor > .content .editor-group-container > .title .tabs-container > .tab[data-resource-name="RayDaemon Chat"],
+.monaco-workbench .part.editor > .content .editor-group-container > .title .tabs-container > .tab[data-uri*="rayDaemonChat"],
+div[aria-label="RayDaemon Chat"] .monaco-workbench .part.editor > .content .editor-group-container > .title {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: absolute !important;
+    top: -9999px !important;
+}
+
+/* Set body margin to remove gap from hidden tab */
+body {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Custom Panel Title Bar Styles */
+.custom-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    height: 35px;
+    background: var(--vscode-editor-background);
+    border-bottom: 1px solid var(--vscode-panel-border);
+    position: relative;
+    z-index: 10;
+}
+
+.custom-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--vscode-tab-activeForeground);
+}
+
+.custom-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.custom-panel-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: none;
+    color: var(--vscode-tab-activeForeground);
+    opacity: 0.8;
+    cursor: pointer;
+    font-family: "codicon";
+    font-size: 16px;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.custom-panel-action:hover {
+    opacity: 1;
+    background: var(--vscode-toolbar-hoverBackground);
+}
+
+/* Codicon usage: actual font-face and glyphs are provided by the inlined codicon.css */
+
+/* Hide the default VS Code webview tab */
+.tab.active[data-resource-name="RayDaemon Chat"],
+.monaco-workbench .part.editor > .content .editor-group-container > .title .tabs-container > .tab.active[data-resource-name="RayDaemon Chat"] {
+    display: none !important;
+}
+
+/* Ensure our custom header is the only one visible */
+body {
+    margin: 0;
+    padding: 0;
+}
+.codicon-chrome-maximize::before { content: "\ea76"; }
+.codicon-chrome-close::before { content: "\ea76"; }

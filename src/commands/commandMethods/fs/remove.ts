@@ -8,7 +8,7 @@ export async function removePath(targetPath: string, options: RemoveOptions = {}
   try {
     const abs = resolveWorkspacePath(targetPath);
     const stat = await fs.lstat(abs).catch(() => null);
-    if (!stat) return;
+    if (!stat) {return;}
 
     if (stat.isDirectory()) {
       if (recursive) {
@@ -21,7 +21,7 @@ export async function removePath(targetPath: string, options: RemoveOptions = {}
       await fs.unlink(abs);
     }
   } catch (error) {
-    if (error instanceof FileOperationError) throw error;
+    if (error instanceof FileOperationError) {throw error;}
     throw new FileOperationError(
       `Failed to remove: ${targetPath} — ${error instanceof Error ? error.message : String(error)}`,
       'EREMOVE',

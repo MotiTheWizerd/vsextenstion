@@ -17,7 +17,7 @@ export async function movePath(src: string, dest: string, opts: MoveOptions = {}
 
     if (!overwrite) {
       const exists = await fs.stat(absDest).then(() => true).catch(() => false);
-      if (exists) throw new FileOperationError(`Destination exists: ${dest}`, 'EEXIST', dest);
+      if (exists) {throw new FileOperationError(`Destination exists: ${dest}`, 'EEXIST', dest);}
     } else {
       // best-effort: remove existing
       await fs.rm(absDest, { force: true, recursive: true }).catch(() => {});
@@ -25,7 +25,7 @@ export async function movePath(src: string, dest: string, opts: MoveOptions = {}
 
     await fs.rename(absSrc, absDest);
   } catch (error) {
-    if (error instanceof FileOperationError) throw error;
+    if (error instanceof FileOperationError) {throw error;}
     throw new FileOperationError(
       `Failed to move: ${src} → ${dest} — ${error instanceof Error ? error.message : String(error)}`,
       'EMOVE',

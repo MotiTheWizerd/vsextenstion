@@ -420,8 +420,11 @@ class MessageHandler {
             this.chatUI.fileUtils.toggleToolDropdown(messageDiv);
           });
 
-          // Add visual cursor pointer for clickable elements
+          // Add visual cursor pointer and clear title for clickable elements
           expandableCount.style.cursor = "pointer";
+          expandableCount.title = "Click to view details";
+          expandableCount.setAttribute('role', 'button');
+          expandableCount.setAttribute('aria-expanded', 'false');
           console.log(
             "[RayDaemon] Made tool count clickable with pointer cursor"
           );
@@ -430,12 +433,15 @@ class MessageHandler {
             "[RayDaemon] No valid expandable count or dropdown found"
           );
 
-          // Remove expandable class if no dropdown content
+          // Remove expandable class and interactive properties if no dropdown content
           const anyToolCount = messageDiv.querySelector(".tool-count");
           if (anyToolCount && !dropdown) {
             anyToolCount.classList.remove("expandable");
             anyToolCount.removeAttribute("data-expandable");
             anyToolCount.style.cursor = "default";
+            anyToolCount.removeAttribute('role');
+            anyToolCount.removeAttribute('aria-expanded');
+            anyToolCount.removeAttribute('title');
           }
         }
       }

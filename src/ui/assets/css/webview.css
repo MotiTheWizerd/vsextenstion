@@ -1,6 +1,7 @@
 /* Modern Chat UI - Similar to Kiro/Claude interface */
 :root {
   --chat-bg: var(--vscode-editor-background);
+  --darker-bg: #1a1a1a; /* New darker background color */
   --message-bg-user: #606060;
   --message-bg-assistant: var(--vscode-input-background);
   --message-text-user: #ffffff;
@@ -25,7 +26,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   color: #ffffff; /* Force bright white text globally */
-  background-color: var(--chat-bg);
+  background-color: var(--darker-bg);
   margin: 0;
   padding: 0;
   height: 100vh;
@@ -48,7 +49,7 @@ body {
 .header {
   padding: 16px 24px;
   border-bottom: 1px solid var(--border-color);
-  background-color: var(--vscode-titleBar-activeBackground);
+  background-color: var(--darker-bg);
   flex-shrink: 0;
 }
 
@@ -56,7 +57,7 @@ body {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--vscode-titleBar-activeForeground);
+  color: #ffffff;
 }
 
 .chat-container {
@@ -71,7 +72,7 @@ body {
   padding: 32px 24px 24px;
   overflow-y: auto;
   scroll-behavior: smooth;
-  background-color: var(--chat-bg);
+  background-color: var(--darker-bg);
   position: relative;
 }
 
@@ -186,7 +187,7 @@ body {
 
 .chat-input-container {
   padding: 16px 20px 20px;
-  background: var(--vscode-panel-background);
+  background: var(--darker-bg);
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
@@ -199,22 +200,19 @@ body {
   box-sizing: border-box;
   position: relative;
   border-radius: 12px;
-  background: color-mix(
-    in srgb,
-    var(--vscode-input-background) 95%,
-    transparent 5%
-  );
-  border: 1px solid #404040 !important; /* Dark gray border - force override */
+  background: var(--darker-bg);
+  border: 1px solid #404040; /* Dark gray border */
   transition: all 0.2s ease;
   overflow: hidden;
 }
 
 .input-wrapper:hover {
-  border-color: #606060 !important; /* Lighter gray on hover - force override */
+  border-color: #404040; /* Keep the same dark border on hover */
 }
 
 .input-wrapper:focus-within {
-  border-color: #808080 !important; /* Even lighter gray on focus - force override */
+  border-color: #404040; /* Keep the same dark border on focus */
+  outline: none; /* Remove the focus outline */
 }
 
 /* Context header */
@@ -223,19 +221,10 @@ body {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: color-mix(
-    in srgb,
-    var(--vscode-input-background) 90%,
-    var(--vscode-panel-border) 10%
-  );
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--vscode-panel-border) 40%, transparent 60%);
+  background: var(--darker-bg);
+  border-bottom: 1px solid #404040;
   font-size: 12px;
-  color: color-mix(
-    in srgb,
-    var(--vscode-input-foreground) 70%,
-    transparent 30%
-  );
+  color: #ffffff;
 }
 
 .context-icon {
@@ -299,7 +288,7 @@ body {
   padding: 6px 10px;
   background: transparent;
   border: 1px solid
-    color-mix(in srgb, var(--vscode-panel-border) 50%, transparent 50%);
+    color-mix(in srgb, var( --darker-bg) 50%, transparent 50%);
   border-radius: 6px;
   color: var(--vscode-input-foreground);
   font-size: 12px;
@@ -316,7 +305,7 @@ body {
   );
   border-color: color-mix(
     in srgb,
-    var(--vscode-panel-border) 70%,
+    var( --darker-bg) 70%,
     transparent 30%
   );
 }
@@ -331,8 +320,8 @@ body {
   width: 100%;
   padding: 8px 0;
   margin: 0;
-  background-color: transparent;
-  color: var(--vscode-input-foreground);
+  background-color: var(--darker-bg);
+  color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
@@ -656,9 +645,9 @@ body {
 /* Better input focus state */
 #chatInput:focus {
   outline: none;
-  /* border-color: var(--button-bg); */
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  transform: translateY(-1px);
+  border-color: none;
+  /* box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); */
+  /* transform: translateY(-1px); */
 }
 
 /* Ensure input stretches properly */
@@ -693,6 +682,7 @@ body {
   justify-content: flex-start; /* Align to left like regular messages */
   margin: 16px 0 20px 0; /* More space above and below tool messages */
   padding-left: 60px; /* Align with message content (avatar width + margin) */
+  pointer-events: none; /* Prevent clicking on the message container */
 }
 
 .tool-message .message-content {
@@ -715,6 +705,7 @@ body {
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
+  pointer-events: auto; /* Re-enable pointer events for the tool status */
 }
 
 .tool-status-main {
@@ -747,6 +738,31 @@ body {
   background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 235, 59, 0.1) 100%);
   border: 1px solid rgba(255, 193, 7, 0.5);
   color: #ffc107;
+}
+
+/* Enhanced interactive elements */
+.tool-count.expandable {
+  position: relative;
+  padding-right: 18px;
+}
+
+.tool-count.expandable::after {
+  content: '▼';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8em;
+  opacity: 0.8;
+  transition: transform 0.2s ease;
+}
+
+.tool-count.expandable:hover {
+  opacity: 0.9;
+}
+
+[data-expanded="true"] .tool-count.expandable::after {
+  transform: translateY(-50%) rotate(180deg);
 }
 
 .tool-status.failed {
@@ -950,11 +966,24 @@ body {
   height: 12px;
 }
 
+/* File icons styling */
+@import "@vscode/codicons/dist/codicon.css";
+
 .tool-file-icon {
-  font-size: 12px;
+  font-size: 16px;
   width: 16px;
-  text-align: center;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+}
+
+.tool-file-icon::before {
+  font-family: codicon;
+  font-size: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .tool-file-name {

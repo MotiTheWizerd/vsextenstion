@@ -39,7 +39,7 @@ export async function listFiles(
     const result: FileEntry[] = [];
 
     for (const entry of dirents) {
-      if (!showHidden && entry.name.startsWith('.')) continue;
+      if (!showHidden && entry.name.startsWith('.')) {continue;}
 
       const entryPath = path.join(resolvedPath, entry.name);
 
@@ -70,13 +70,13 @@ export async function listFiles(
     }
 
     result.sort((a, b) => {
-      if (a.type === b.type) return a.name.localeCompare(b.name);
+      if (a.type === b.type) {return a.name.localeCompare(b.name);}
       return a.type === 'directory' ? -1 : 1;
     });
 
     return result;
   } catch (error) {
-    if (error instanceof FileOperationError) throw error;
+    if (error instanceof FileOperationError) {throw error;}
     throw new FileOperationError(
       `Unexpected error listing files: ${error instanceof Error ? error.message : String(error)}`,
       'EUNKNOWN',

@@ -21,7 +21,7 @@ export async function getFileInfo(filePath: string): Promise<FileEntry> {
       modified: st.mtime,
     };
   } catch (error) {
-    if (error instanceof FileOperationError) throw error;
+    if (error instanceof FileOperationError) {throw error;}
     throw new FileOperationError(
       `Failed to stat: ${filePath} — ${error instanceof Error ? error.message : String(error)}`,
       'ESTAT',

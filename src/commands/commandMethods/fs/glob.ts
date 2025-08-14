@@ -13,7 +13,7 @@ export async function globSearch(patterns: string[], options: GlobOptions = {}):
 
     const out: string[] = [];
     await walk(root, async (abs, rel, isDir) => {
-      if (!includeDirs && isDir) return;
+      if (!includeDirs && isDir) {return;}
       if (regexes.some(r => r.test(rel)) && !ignoreRegexes.some(r => r.test(rel))) {
         out.push(rel);
       }
@@ -22,7 +22,7 @@ export async function globSearch(patterns: string[], options: GlobOptions = {}):
 
     return out;
   } catch (error) {
-    if (error instanceof FileOperationError) throw error;
+    if (error instanceof FileOperationError) {throw error;}
     throw new FileOperationError(
       `Glob search failed — ${error instanceof Error ? error.message : String(error)}`,
       'EGLOB'
@@ -51,8 +51,8 @@ async function walk(root: string, visitor: (abs: string, rel: string, isDir: boo
       const rel = path.relative(root, abs).replace(/\\/g, '/');
       const isDir = e.isDirectory();
       const cont = await visitor(abs, rel, isDir);
-      if (cont === false) return;
-      if (isDir) stack.push(abs);
+      if (cont === false) {return;}
+      if (isDir) {stack.push(abs);}
     }
   }
 }
