@@ -1,0 +1,33 @@
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.action-button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: color-mix(
+    in srgb,
+    var(--vscode-input-foreground) 70%,
+    transparent 30%
+  );
+}
+
+.action-button:hover {
+  background: color-mix(
+    in srgb,
+    var(--vscode-button-background) 20%,
+    transparent 80%
+  );
+  color: var(--vscode-input-foreground);
+}

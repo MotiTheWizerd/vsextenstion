@@ -8,31 +8,36 @@ import * as path from "path";
  * @param customCSS - Custom CSS to inject
  * @returns The CSS content
  */
-export function getStyles(extensionContext: vscode.ExtensionContext, customCSS: string = ""): string {
-  // Get file system paths for reading content
-  const stylesPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/css/webview.css"
-  );
-  const customPanelStylesPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/css/custom-panel.css"
-  );
-  const fileIconsStylesPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/css/file-icons.css"
-  );
+export function getStyles(extensionContext: vscode.ExtensionContext, customCSS: string = "") {
+  const cssFiles = [
+    "src/ui/assets/css/webview.css",
+    "src/ui/assets/css/custom-panel.css",
+    "src/ui/assets/css/file-icons.css",
+    "src/ui/assets/css/webviewCssStyles/animations.css",
+    "src/ui/assets/css/webviewCssStyles/base.css",
+    "src/ui/assets/css/webviewCssStyles/chat.css",
+    "src/ui/assets/css/webviewCssStyles/code-block.css",
+    "src/ui/assets/css/webviewCssStyles/input.css",
+    "src/ui/assets/css/webviewCssStyles/responsive.css",
+    "src/ui/assets/css/webviewCssStyles/inputUtils/action-button.css",
+    "src/ui/assets/css/webviewCssStyles/inputUtils/chat-input.css",
+    "src/ui/assets/css/webviewCssStyles/inputUtils/input-context.css",
+    "src/ui/assets/css/webviewCssStyles/inputUtils/input-controls.css",
+    "src/ui/assets/css/webviewCssStyles/inputUtils/input-main.css",
+    "src/ui/assets/css/webviewCssStyles/inputUtils/input-wrapper.css",
+    "src/ui/assets/css/webviewCssStyles/inputUtils/send-button.css",
+    "src/ui/assets/css/webviewCssStyles/tool-status.css",
+  ];
 
-  // Read CSS files
   let cssContent = "";
 
-  try {
-    cssContent = fs.readFileSync(stylesPath, "utf8");
-    cssContent += "\n" + fs.readFileSync(customPanelStylesPath, "utf8");
-    cssContent += "\n" + fs.readFileSync(fileIconsStylesPath, "utf8");
-  } catch (error) {
-    console.error("Failed to load webview CSS:", error);
-    cssContent = "/* Error loading styles */";
+  for (const cssFile of cssFiles) {
+    try {
+      const cssPath = path.join(extensionContext.extensionPath, cssFile);
+      cssContent += fs.readFileSync(cssPath, "utf8") + "\n";
+    } catch (error) {
+      console.error(`Failed to load CSS file: ${cssFile}`, error);
+    }
   }
 
   // Ensure Codicons are available inside the webview.

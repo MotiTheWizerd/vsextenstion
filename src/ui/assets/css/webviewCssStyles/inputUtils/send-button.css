@@ -1,0 +1,54 @@
+#sendButton {
+  width: 32px;
+  height: 32px;
+  background: var(--button-bg);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#sendButton:hover:not(:disabled) {
+  background: var(--button-hover);
+  transform: scale(1.05);
+}
+
+#sendButton:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+#sendButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  background: color-mix(
+    in srgb,
+    var(--vscode-input-foreground) 30%,
+    transparent 70%
+  );
+}
+
+/* Send button icon */
+.send-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Better button positioning */
+#sendButton {
+  align-self: flex-end;
+  margin-bottom: 0;
+}

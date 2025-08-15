@@ -1,0 +1,22 @@
+/* Main input area */
+.input-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Text input row - full width */
+.input-text-row {
+  width: 100%;
+}
+
+/* Controls row - bottom row with buttons */
+.input-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}

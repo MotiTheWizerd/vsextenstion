@@ -1,0 +1,69 @@
+.tool-status {
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-status-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.tool-status.starting {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tool-status.working {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tool-status.success {
+  background-color: rgba(22, 163, 74, 0.12);
+  border-left: 3px solid rgba(22, 163, 74, 0.6);
+}
+
+.tool-status.partial {
+  background-color: rgba(245, 158, 11, 0.12);
+  border-left: 3px solid rgba(245, 158, 11, 0.6);
+}
+
+.tool-status.failed {
+  background-color: rgba(239, 68, 68, 0.12);
+  border-left: 3px solid rgba(239, 68, 68, 0.6);
+}
+
+.tool-icon {
+  font-size: 16px;
+}
+
+.tool-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-text {
+  font-size: 14px;
+}
+
+.tool-meta {
+  flex-shrink: 0;
+}
+
+.tool-spinner {
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top: 2px solid #fff;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

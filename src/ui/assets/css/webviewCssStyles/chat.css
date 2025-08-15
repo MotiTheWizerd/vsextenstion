@@ -1,0 +1,172 @@
+
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 32px 24px 24px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  background-color: var(--darker-bg);
+  position: relative;
+}
+
+.chat-messages::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent 0%, var(--chat-bg) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.message {
+  display: flex;
+  margin-bottom: 24px;
+  animation: messageSlideIn 0.3s ease-out;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  max-width: 75%;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  position: relative;
+  word-wrap: break-word;
+  line-height: 1.6;
+  box-shadow: var(--shadow);
+  font-size: var(--message-font-size); /* Use standard font size */
+  font-weight: var(--message-font-weight); /* Use standard font weight */
+}
+
+.message.user .message-content {
+  background: linear-gradient(135deg, var(--message-bg-user) 0%, #1d4ed8 100%);
+  color: var(--message-text-user);
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
+
+.message.assistant .message-content {
+  background-color: var(--message-bg-assistant);
+  color: #ffffff !important; /* Force bright white text */
+  border: 1px solid var(--border-color);
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  margin: 0 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 2px solid transparent;
+}
+
+.message.user .message-avatar {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  order: 1;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.message.assistant .message-avatar {
+  background: linear-gradient(
+    135deg,
+    var(--vscode-button-background) 0%,
+    var(--vscode-button-hoverBackground) 100%
+  );
+  color: var(--vscode-button-foreground);
+  border-color: var(--border-color);
+}
+
+.message-time {
+  font-size: 12px; /* Slightly larger timestamp */
+  color: rgba(255, 255, 255, 0.7); /* White with transparency */
+  margin-top: 4px;
+  opacity: 0.8; /* Slightly more visible */
+}
+
+.typing-indicator {
+  display: none;
+  padding: 16px 24px;
+  background-color: var(--vscode-panel-background);
+  border-top: 1px solid var(--border-color);
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.typing-indicator.show {
+  display: block;
+}
+
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  background-color: var(--vscode-descriptionForeground);
+  border-radius: 50%;
+  animation: typingDot 1.4s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Enhanced message styling */
+.message-content {
+  transition: all 0.2s ease;
+}
+
+.message-content:hover {
+  transform: translateY(-1px);
+}
+
+.message.user .message-content:hover {
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.message.assistant .message-content:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Better message spacing and layout */
+.message {
+  margin-bottom: 20px;
+  animation: messageSlideIn 0.3s ease-out;
+  align-items: flex-start;
+}
+
+.message:last-child {
+  margin-bottom: 0;
+}

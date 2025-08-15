@@ -1,0 +1,41 @@
+
+.chat-input-container {
+  padding: 16px 20px 20px;
+  background: var(--darker-bg);
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  border-radius: 12px;
+  background: var(--darker-bg);
+  border: 1px solid #404040; /* Dark gray border */
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.input-wrapper:hover {
+  border-color: #404040; /* Keep the same dark border on hover */
+}
+
+.input-wrapper:focus-within {
+  border-color: #404040; /* Keep the same dark border on focus */
+  outline: none; /* Remove the focus outline */
+}
+/* Better input focus state */
+.input-wrapper:focus-within {
+  outline: none;
+  border-color: var(--button-bg);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+/* Ensure input stretches properly */
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}

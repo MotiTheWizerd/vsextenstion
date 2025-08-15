@@ -3,69 +3,69 @@ class FileIconUtils {
     const extension = filename.split(".").pop().toLowerCase();
     const fileName = filename.toLowerCase();
 
-    // Map file extensions to actual Codicon icons that exist
+    // Map file extensions to emoji icons for reliability
     const iconMap = {
       // Programming Languages
-      js: "symbol-method",
-      ts: "symbol-method",
-      jsx: "symbol-method",
-      tsx: "symbol-method",
-      py: "symbol-method",
-      java: "symbol-method",
-      cpp: "symbol-method",
-      c: "symbol-method",
-      cs: "symbol-method",
-      go: "symbol-method",
-      rs: "symbol-method",
-      rb: "symbol-method",
-      php: "symbol-method",
+      js: "📦",
+      ts: "📦", 
+      jsx: "⚛️",
+      tsx: "⚛️",
+      py: "🐍",
+      java: "☕",
+      cpp: "⚙️",
+      c: "⚙️",
+      cs: "🔷",
+      go: "🐹",
+      rs: "🦀",
+      rb: "💎",
+      php: "🐘",
 
       // Web Technologies
-      html: "code",
-      css: "symbol-color",
-      scss: "symbol-color",
-      sass: "symbol-color",
-      less: "symbol-color",
-      json: "json",
-      xml: "code",
-      md: "markdown",
+      html: "🌐",
+      css: "🎨",
+      scss: "🎨",
+      sass: "🎨",
+      less: "🎨",
+      json: "📋",
+      xml: "📄",
+      md: "📝",
 
       // Config Files
-      env: "settings-gear",
-      yml: "settings-gear",
-      yaml: "settings-gear",
-      toml: "settings-gear",
-      ini: "settings-gear",
-      conf: "settings-gear",
-      config: "settings-gear",
+      env: "⚙️",
+      yml: "⚙️",
+      yaml: "⚙️",
+      toml: "⚙️",
+      ini: "⚙️",
+      conf: "⚙️",
+      config: "⚙️",
 
       // Documentation
-      pdf: "file-pdf",
-      doc: "file-text",
-      docx: "file-text",
-      txt: "file-text",
+      pdf: "📕",
+      doc: "📄",
+      docx: "📄",
+      txt: "📄",
 
       // Images
-      png: "file-media",
-      jpg: "file-media",
-      jpeg: "file-media",
-      gif: "file-media",
-      svg: "file-media",
+      png: "🖼️",
+      jpg: "🖼️",
+      jpeg: "🖼️",
+      gif: "🖼️",
+      svg: "🖼️",
 
       // Archives
-      zip: "file-zip",
-      rar: "file-zip",
-      tar: "file-zip",
-      gz: "file-zip",
+      zip: "📦",
+      rar: "📦",
+      tar: "📦",
+      gz: "📦",
 
       // Others
-      sh: "terminal",
-      bat: "terminal",
-      ps1: "terminal",
-      sql: "database",
-      db: "database",
+      sh: "💻",
+      bat: "💻",
+      ps1: "💻",
+      sql: "🗃️",
+      db: "🗃️",
     };
 
-    return `codicon codicon-${iconMap[extension] || "file"}`; // Use actual Codicon classes
+    return iconMap[extension] || "📄"; // Return emoji directly
   }
 }

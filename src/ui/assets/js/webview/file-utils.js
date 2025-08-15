@@ -149,7 +149,7 @@ class FileUtils {
         return `
         <div class="tool-file-item" data-file-path="${escapedPath}">
           <div class="tool-file-content">
-            <div class="tool-file-icon ${FileIconUtils.getFileIcon(fileObj.name)}"></div>
+            <div class="tool-file-icon">${FileIconUtils.getFileIcon(fileObj.name)}</div>
             <div class="tool-file-info">
               <div class="tool-file-name">${escapedFileName}${escapedMetadata}</div>
               ${
