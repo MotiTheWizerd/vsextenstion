@@ -21,8 +21,23 @@
         "category": "RayDaemon"
       },
       {
+        "command": "raydaemon.openWelcomeView",
+        "title": "Open Welcome View",
+        "category": "RayDaemon"
+      },
+      {
+        "command": "raydaemon.showChatInterface",
+        "title": "Show Chat Interface",
+        "category": "RayDaemon"
+      },
+      {
+        "command": "raydaemon.openChatPanel",
+        "title": "Open Chat Panel",
+        "category": "RayDaemon"
+      },
+      {
         "command": "raydaemon.openPanel",
-        "title": "Open RayDaemon Panel",
+        "title": "Open Chat Panel",
         "category": "RayDaemon"
       },
       {
@@ -36,14 +51,14 @@
         {
           "id": "rayDaemonContainer",
           "title": "RayDaemon",
-          "icon": "media/ray-icon.svg"
+          "icon": "$(robot)"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
-          "command": "raydaemon.openPanel",
+          "command": "raydaemon.openChatPanel",
           "when": "view == rayDaemonDummyView",
           "group": "navigation"
         }
@@ -70,7 +85,7 @@
     "viewsWelcome": [
       {
         "view": "rayDaemonDummyView",
-        "contents": "Welcome to RayDaemon!\n\n[Open Chat Panel](command:raydaemon.openPanel)\n\nClick the button above to open the chat interface."
+        "contents": "Welcome to RayDaemon!\n\n[Open Chat Panel](command:raydaemon.openChatPanel)\n\nClick the button above to open the chat interface."
       }
     ]
   },

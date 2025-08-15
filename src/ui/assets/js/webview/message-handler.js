@@ -444,6 +444,49 @@ class MessageHandler {
             anyToolCount.removeAttribute('title');
           }
         }
+
+        // Add click handlers for file items
+        const fileItems = messageDiv.querySelectorAll(".tool-file-item");
+        fileItems.forEach(fileItem => {
+          fileItem.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const filePath = fileItem.getAttribute("data-file-path");
+            if (filePath) {
+              console.log("[RayDaemon] Opening file:", filePath);
+              // Send message to extension to open the file
+              this.chatUI.postMessage({
+                command: "openFile",
+                filePath: filePath
+              });
+            }
+          });
+          
+          // Add hover effect
+          fileItem.style.cursor = "pointer";
+        });
+
+        // Add click handlers for diff icons
+        const diffIcons = messageDiv.querySelectorAll(".tool-file-diff");
+        diffIcons.forEach(diffIcon => {
+          diffIcon.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const filePath = diffIcon.getAttribute("data-file-path");
+            if (filePath) {
+              console.log("[RayDaemon] Showing diff for file:", filePath);
+              // Send message to extension to show the diff
+              this.chatUI.postMessage({
+                command: "showDiff",
+                filePath: filePath
+              });
+            }
+          });
+          
+          // Add hover effect
+          diffIcon.style.cursor = "pointer";
+          diffIcon.title = "Click to view changes";
+        });
       }
 
       this.chatUI.scrollToBottom();
@@ -1211,6 +1254,8 @@ class MessageHandler {
 
   handleIncomingMessage(message) {
     console.log("Received message:", message);
+    console.log("Message type:", message.type);
+    console.log("Message data:", message.data);
 
     // Clear typing indicator and timeout for any incoming response
     if (this.chatUI.typingTimeout) {
@@ -1236,8 +1281,20 @@ class MessageHandler {
 
     if (message.type === "rayResponse" && message.data) {
       const { content, isWorking, isFinal, isCommandResult } = message.data;
-      if (content && !isCommandResult) {
-        // Skip old command result messages
+      console.log("rayResponse - content:", content);
+      console.log("rayResponse - isWorking:", isWorking);
+      console.log("rayResponse - isFinal:", isFinal);
+      console.log("rayResponse - isCommandResult:", isCommandResult);
+      
+      if (content) {
+        // Skip old command result messages only if they're not final responses
+        if (isCommandResult && !isFinal) {
+          console.log("Skipping command result message (not final)");
+          return;
+        }
+        
+        console.log("Adding rayResponse message to chat");
+        
         // If this is a final response and we have a working message, replace it
         if (isFinal !== false && !isWorking) {
           const workingMessage = this.chatUI.chatMessages.querySelector(
@@ -1253,6 +1310,8 @@ class MessageHandler {
           showAvatar: true,
           isWorking: isWorking || false,
         });
+      } else {
+        console.log("rayResponse has no content, skipping");
       }
       return;
     }

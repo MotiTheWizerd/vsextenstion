@@ -184,7 +184,7 @@ export const diagnosticHandlers: CommandRegistry = {
 
   getFileDiagnostics: {
     handler: async (args: string[]): Promise<string> => {
-      if (args.length === 0) {
+      if (args.length === 0 || !args[0]) {
         throw new CommandError("No file path provided", "EINVAL");
       }
 

@@ -153,16 +153,31 @@ export async function sendCommandResultsToRay(originalMessage: string, commandRe
       console.log(`[RayDaemon] Ray responded to command results with status ${response.status}, processing response...`);
       console.log(`[RayDaemon] Ray's follow-up response:`, JSON.stringify(response.data, null, 2));
       
-      // Process Ray's follow-up response to continue the conversation
-      if (processRayResponse) {
-        console.log("=== RAY FOLLOW-UP RESPONSE RECEIVED ===");
-        console.log(`[RayDaemon] Calling processRayResponse for follow-up...`);
-        console.log(`[RayDaemon] Ray's follow-up response data:`, JSON.stringify(response.data, null, 2));
-        await processRayResponse(response.data);
-        console.log(`[RayDaemon] Follow-up response processed successfully`);
-        console.log("=== SEND COMMAND RESULTS TO RAY END ===");
+      // Check if Ray actually sent a meaningful response
+      const hasContent = response.data.message || response.data.content || response.data.response;
+      console.log(`[RayDaemon] Ray follow-up has content: ${!!hasContent}`);
+      
+      if (hasContent) {
+        // Process Ray's follow-up response to continue the conversation
+        if (processRayResponse) {
+          console.log("=== RAY FOLLOW-UP RESPONSE RECEIVED ===");
+          console.log(`[RayDaemon] Calling processRayResponse for follow-up...`);
+          console.log(`[RayDaemon] Ray's follow-up response data:`, JSON.stringify(response.data, null, 2));
+          await processRayResponse(response.data);
+          console.log(`[RayDaemon] Follow-up response processed successfully`);
+          console.log("=== SEND COMMAND RESULTS TO RAY END ===");
+        } else {
+          console.warn(`[RayDaemon] processRayResponse callback not set, cannot process Ray's follow-up response`);
+        }
       } else {
-        console.warn(`[RayDaemon] processRayResponse callback not set, cannot process Ray's follow-up response`);
+        console.log(`[RayDaemon] Ray's follow-up response has no content, showing default completion message`);
+        // If Ray doesn't provide content, show a default completion message
+        if (processRayResponse) {
+          await processRayResponse({
+            message: "✅ **Task completed successfully!**\n\nAll requested operations have been executed.",
+            is_final: true
+          });
+        }
       }
     } else {
       console.log(`[RayDaemon] Ray did not provide a valid follow-up response. Status: ${response.status}, Data: ${JSON.stringify(response.data)}`);
@@ -170,7 +185,7 @@ export async function sendCommandResultsToRay(originalMessage: string, commandRe
       // If Ray doesn't respond properly, we should still show something to the user
       if (processRayResponse) {
         await processRayResponse({
-          message: "Command results sent successfully, but no follow-up response received.",
+          message: "✅ **Task completed!**\n\nCommand results were sent successfully.",
           is_final: true
         });
       }

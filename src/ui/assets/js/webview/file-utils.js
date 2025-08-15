@@ -32,13 +32,46 @@ class FileUtils {
         statusMessages.add(result.status);
       }
       if (result.command) {
-        const cmdMsg = result.args 
-          ? `${result.command} ${result.args.join(' ')}`
-          : result.command;
-        messages.push(cmdMsg);
-        
         if (result.output && typeof result.output === 'string' && result.output.trim()) {
-          messages.push(result.output.trim());
+          // Try to parse JSON output and create a nice summary
+          try {
+            const parsed = JSON.parse(result.output.trim());
+            if (parsed.type === 'fileList' && Array.isArray(parsed.files)) {
+              // For file lists, show a summary instead of command name and raw JSON
+              const fileCount = parsed.files.length;
+              const summary = `Found ${fileCount} item${fileCount !== 1 ? 's' : ''} in directory`;
+              messages.push(summary);
+            } else {
+              // For other JSON, show command name and output
+              const cmdMsg = result.args 
+                ? `${result.command} ${result.args.join(' ')}`
+                : result.command;
+              messages.push(cmdMsg);
+              messages.push(result.output.trim());
+            }
+          } catch (e) {
+            // Not JSON, check if it's a file modification command
+            if (['write', 'append', 'replace'].includes(result.command)) {
+              // For file modification commands, show a success message instead of the file content
+              const fileName = result.args && result.args[0] ? result.args[0].split(/[/\\]/).pop() : 'file';
+              const action = result.command === 'write' ? 'Created' : 
+                           result.command === 'append' ? 'Appended to' : 'Modified';
+              messages.push(`✅ ${action} ${fileName}`);
+            } else {
+              // For other commands, show command name and output
+              const cmdMsg = result.args 
+                ? `${result.command} ${result.args.join(' ')}`
+                : result.command;
+              messages.push(cmdMsg);
+              messages.push(result.output.trim());
+            }
+          }
+        } else {
+          // No output, just show command name
+          const cmdMsg = result.args 
+            ? `${result.command} ${result.args.join(' ')}`
+            : result.command;
+          messages.push(cmdMsg);
         }
       }
     });
