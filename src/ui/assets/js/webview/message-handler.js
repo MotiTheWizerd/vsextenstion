@@ -4,6 +4,8 @@ class MessageHandler {
   }
 
   handleToolStatus(data) {
+    console.log("[RayDaemon] handleToolStatus called with:", data);
+    
     const {
       status,
       tools,
@@ -16,18 +18,35 @@ class MessageHandler {
       batchMode,
     } = data;
 
+    console.log("[RayDaemon] Tool status:", status, "batchMode:", batchMode, "tools:", tools);
+
     let content = "";
     let className = "tool-status";
 
     if (status === "starting") {
+      console.log("[RayDaemon] Processing starting status, batchMode:", batchMode);
       if (batchMode) {
         // Show batch starting indicator
         const taskDescription = this.getBatchDescription(tools, totalCount);
+        console.log("[RayDaemon] Creating batch starting message with taskDescription:", taskDescription);
+        // Get appropriate icon for starting state based on tools
+        const startingCategories = this.categorizeCommands(tools, []);
+        const primaryStartingCategory = Object.entries(startingCategories)
+          .filter(([key, value]) => value.count > 0)
+          .sort(([, a], [, b]) => b.count - a.count)[0];
+        
+        const startingIcon = primaryStartingCategory 
+          ? this.getStartingIcon(primaryStartingCategory[0])
+          : "🚀";
+
         content = `<div class="${className} starting" data-tool-id="batch-starting">
           <div class="tool-status-main">
-            <div class="tool-icon">🚀</div>
+            <div class="tool-icon">${startingIcon}</div>
             <div class="tool-content">
-              <div class="tool-text">Starting: ${taskDescription}</div>
+              <div class="tool-text">Initializing: ${taskDescription}</div>
+            </div>
+            <div class="tool-meta">
+              <div class="tool-badge">Starting</div>
             </div>
           </div>
         </div>`;
@@ -46,13 +65,26 @@ class MessageHandler {
         const progressText =
           currentIndex && totalCount ? ` (${currentIndex}/${totalCount})` : "";
 
+        // Get appropriate icon for starting state based on tools
+        const individualStartingCategories = this.categorizeCommands(tools, []);
+        const primaryIndividualStartingCategory = Object.entries(individualStartingCategories)
+          .filter(([key, value]) => value.count > 0)
+          .sort(([, a], [, b]) => b.count - a.count)[0];
+        
+        const individualStartingIcon = primaryIndividualStartingCategory 
+          ? this.getStartingIcon(primaryIndividualStartingCategory[0])
+          : "🚀";
+
         content = `<div class="${className} starting" data-tool-id="current-starting-${
           currentIndex || "batch"
         }">
           <div class="tool-status-main">
-            <div class="tool-icon">🚀</div>
+            <div class="tool-icon">${individualStartingIcon}</div>
             <div class="tool-content">
-              <div class="tool-text">Starting: ${toolList}${progressText}</div>
+              <div class="tool-text">Initializing: ${toolList}${progressText}</div>
+            </div>
+            <div class="tool-meta">
+              <div class="tool-badge">Starting</div>
             </div>
           </div>
         </div>`;
@@ -77,8 +109,12 @@ class MessageHandler {
             <div class="tool-content">
               <div class="tool-text">${taskDescription}${progressText}</div>
             </div>
-            <div class="tool-spinner"></div>
+            <div class="tool-meta">
+              <div class="tool-badge">Processing</div>
+              <div class="tool-spinner"></div>
+            </div>
           </div>
+          <div class="tool-progress"></div>
         </div>`;
 
         // Remove the batch starting indicator
@@ -116,8 +152,12 @@ class MessageHandler {
             <div class="tool-content">
               <div class="tool-text">${toolList}${progressText}</div>
             </div>
-            <div class="tool-spinner"></div>
+            <div class="tool-meta">
+              <div class="tool-badge">Processing</div>
+              <div class="tool-spinner"></div>
+            </div>
           </div>
+          <div class="tool-progress"></div>
         </div>`;
 
         const existingStarting = this.chatUI.chatMessages.querySelector(
@@ -230,6 +270,7 @@ class MessageHandler {
           })</div>
               </div>
               <div class="tool-meta">
+                <div class="tool-badge">Partial</div>
                 <div class="tool-count ${
                   shouldBeExpandable ? "expandable" : ""
                 }" data-expandable="${shouldBeExpandable}">${successCount}/${totalCount}</div>
@@ -245,6 +286,7 @@ class MessageHandler {
                 <div class="tool-text">${taskDescription}</div>
               </div>
               <div class="tool-meta">
+                <div class="tool-badge">Completed</div>
                 <div class="tool-count ${
                   shouldBeExpandable ? "expandable" : ""
                 }" data-expandable="${shouldBeExpandable}">${displayCount} ${displayLabel}</div>
@@ -324,6 +366,7 @@ class MessageHandler {
                 <div class="tool-text">${completionText}${progressText} (error)</div>
               </div>
               <div class="tool-meta">
+                <div class="tool-badge">Error</div>
                 <div class="tool-count ${
                   hasFileResults && dropdownHtml ? "expandable" : ""
                 }" data-expandable="${!!(
@@ -334,7 +377,7 @@ class MessageHandler {
             ${dropdownHtml}
           </div>`;
         } else {
-          content = `<div class="${className} success" data-tool-id="completed-${
+          content = `<div class="tool-status success" data-tool-id="completed-${
             currentIndex || "batch"
           }">
             <div class="tool-status-main">
@@ -343,6 +386,7 @@ class MessageHandler {
                 <div class="tool-text">${completionText}${progressText}</div>
               </div>
               <div class="tool-meta">
+                <div class="tool-badge">Completed</div>
                 <div class="tool-count ${
                   hasFileResults && dropdownHtml ? "expandable" : ""
                 }" data-expandable="${!!(
@@ -381,6 +425,9 @@ class MessageHandler {
           <div class="tool-icon">❌</div>
           <div class="tool-content">
             <div class="tool-text">Failed: ${toolList}${progressText}</div>
+          </div>
+          <div class="tool-meta">
+            <div class="tool-badge">Failed</div>
           </div>
         </div>
       </div>`;
@@ -741,6 +788,28 @@ class MessageHandler {
 
     // If no specific pattern found, return null to use category-based message
     return null;
+  }
+
+  /**
+   * Get appropriate icon for starting state based on command category
+   */
+  getStartingIcon(categoryName) {
+    switch (categoryName) {
+      case "diagnostic":
+        return "🔍"; // Magnifying glass for analysis
+      case "fileModification":
+        return "✏️"; // Pencil for editing
+      case "fileReading":
+        return "📖"; // Book for reading
+      case "search":
+        return "🔎"; // Search icon
+      case "listing":
+        return "📋"; // Clipboard for listing
+      case "indexing":
+        return "🗂️"; // Index cards for indexing
+      default:
+        return "🚀"; // Rocket for generic starting
+    }
   }
 
   /**

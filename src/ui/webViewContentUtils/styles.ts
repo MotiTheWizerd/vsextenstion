@@ -27,6 +27,7 @@ export function getStyles(extensionContext: vscode.ExtensionContext, customCSS: 
     "src/ui/assets/css/webviewCssStyles/inputUtils/input-wrapper.css",
     "src/ui/assets/css/webviewCssStyles/inputUtils/send-button.css",
     "src/ui/assets/css/webviewCssStyles/tool-status.css",
+    "src/ui/assets/css/webviewCssStyles/tool-dropdown.css",
   ];
 
   let cssContent = "";
