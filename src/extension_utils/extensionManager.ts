@@ -13,10 +13,17 @@ export class ExtensionManager {
     private currentPanel: vscode.WebviewPanel | undefined;
     private commandExecutor: CommandExecutor | undefined;
     private rayResponseHandler: RayResponseHandler | undefined;
+    private activated: boolean = false;
+    private autoPanelOpened: boolean = false;
 
     constructor(private context: vscode.ExtensionContext) {}
 
     activate(): void {
+        if (this.activated) {
+            console.log("[RayDaemon] Extension already activated, skipping.");
+            return;
+        }
+        this.activated = true;
         console.log("[RayDaemon] Extension activated.");
 
         this.setupRayResponseHandling();
@@ -25,7 +32,10 @@ export class ExtensionManager {
         console.log("[RayDaemon] Calling registerCommands()...");
         registerAllCommands(this.context);
         this.setupTreeView();
-        this.autoOpenPanel();
+        if (!this.autoPanelOpened) {
+            this.autoOpenPanel();
+            this.autoPanelOpened = true;
+        }
 
         this.context.subscriptions.push({ dispose: () => this.deactivate() });
     }

@@ -161,6 +161,7 @@ Key styling features:
 ```javascript
 class ModernChatUI {
   initializeEventListeners() {
+    console.log('in init')
     // Send message events
     this.sendButton.addEventListener("click", () => this.handleSendMessage());
     

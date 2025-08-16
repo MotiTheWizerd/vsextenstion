@@ -32,12 +32,22 @@ export function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("raydaemon.openChatPanel", () => {
       console.log("[RayDaemon] raydaemon.openChatPanel command executed.");
+
+      // Check if a panel already exists
+      if ((global as any).currentPanel) {
+        console.log("[RayDaemon] Panel already exists, revealing it.");
+        (global as any).currentPanel.reveal(vscode.ViewColumn.Two);
+        return;
+      }
       const panel = vscode.window.createWebviewPanel(
         "rayDaemonPanel",
         "RayDaemon Control",
         vscode.ViewColumn.Two,
-        { enableScripts: true }
-      );
+        { 
+            enableScripts: true,
+            retainContextWhenHidden: true  // Add this line
+        }
+    );
       console.log("[RayDaemon] WebviewPanel created.");
 
       // Store panel reference for autonomous messaging
@@ -46,14 +56,27 @@ export function registerCommands(context: vscode.ExtensionContext) {
       // Enable message passing between webview and extension
       panel.webview.onDidReceiveMessage(
         async (message) => {
+          console.log('[RayDaemon] WebviewPanel received message:', message);
           switch (message.type || message.command) {
-            case "chat":
-              const result = await handleCommand(message.content);
+            case "sendMessage":
+              console.log('[RayDaemon] Processing sendMessage with content:', message.message);
+              const result = await handleCommand(message.message);
               // Don't send chat_response if Ray is handling the response
               if (!result.startsWith('__RAY_RESPONSE_HANDLED__')) {
                 panel.webview.postMessage({
-                  type: "chat_response",
+                  type: "addMessage",
+                  role: "assistant",
                   content: result,
+                });
+              }
+              break;
+            case "chat":
+              const chatResult = await handleCommand(message.content);
+              // Don't send chat_response if Ray is handling the response
+              if (!chatResult.startsWith('__RAY_RESPONSE_HANDLED__')) {
+                panel.webview.postMessage({
+                  type: "chat_response",
+                  content: chatResult,
                 });
               }
               break;

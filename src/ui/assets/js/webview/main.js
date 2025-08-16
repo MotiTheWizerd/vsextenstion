@@ -1,10 +1,12 @@
 import ModernChatUI from './chat-ui.js';
 import MessageHandler from './message-handler.js';
-import { FileIconUtils } from './file-icons.js';
+
+// Acquire the VS Code API
+const vscode = acquireVsCodeApi();
 
 // Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
-  const chatUI = new ModernChatUI();
+  const chatUI = new ModernChatUI(vscode);
   const messageHandler = new MessageHandler(chatUI);
 
   // Listen for messages from extension
@@ -21,7 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
     chatUI.postMessage({ command: "webviewUnload" });
   });
 
-  // Focus input after initialization and ensure proper sizing
+  // Focus input after initialization
   setTimeout(() => {
     chatUI.focusInput();
     chatUI.ensureInputWidth();

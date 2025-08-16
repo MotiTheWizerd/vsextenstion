@@ -7,25 +7,31 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   
   private async handleChatMessage(message: string) {
+    console.log("[RayDaemon] handleChatMessage called with message:", message);
     if (!this._view) {
+      console.log("[RayDaemon] _view is not defined, returning.");
       return;
     }
     
     try {
       // Show typing indicator
+      console.log("[RayDaemon] Posting showTypingIndicator to webview.");
       this._view.webview.postMessage({
         type: 'showTypingIndicator'
       });
       
       // Process the message (you would add your chat logic here)
+      console.log("[RayDaemon] Calling processMessage with:", message);
       const response = await this.processMessage(message);
       
       // Hide typing indicator
+      console.log("[RayDaemon] Posting hideTypingIndicator to webview.");
       this._view.webview.postMessage({
         type: 'hideTypingIndicator'
       });
       
       // Send response to webview
+      console.log("[RayDaemon] Posting addMessage to webview with response:", response);
       this._view.webview.postMessage({
         type: 'addMessage',
         role: 'assistant',
@@ -33,7 +39,7 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
       });
       
     } catch (error) {
-      console.error('Error processing message:', error);
+      console.error('[RayDaemon] Error processing message in handleChatMessage:', error);
       
       // Hide typing indicator
       this._view.webview.postMessage({
@@ -49,12 +55,14 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
   }
   
   private async processMessage(message: string): Promise<string> {
+    console.log("[RayDaemon] processMessage called with message:", message);
     // Here you would implement your chat processing logic
     // For now, just echo back the message
     return `You said: ${message}`;
   }
 
   constructor(context: vscode.ExtensionContext) {
+    console.log("[RayDaemon] RayDaemonViewProvider constructor called.");
     this._context = context;
 
     this._context.subscriptions.push(
@@ -115,6 +123,7 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (message) => {
+      console.log('[RayDaemon] Received message from webview:', message);
       switch (message.command) {
         case 'openFile':
           if (message.filePath) {
@@ -150,14 +159,14 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
           }
           break;
           
-        case 'openChatPanel':
-          await vscode.commands.executeCommand('raydaemon.openChatPanel');
-          break;
-          
         case 'sendMessage':
+          console.log('[RayDaemon] Received sendMessage command with message:', message.message);
           if (message.message) {
             // Handle chat message from user
+            console.log('[RayDaemon] Calling handleChatMessage with:', message.message);
             this.handleChatMessage(message.message);
+          } else {
+            console.log('[RayDaemon] No message content in sendMessage command');
           }
           break;
       }
@@ -172,6 +181,7 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
         await vscode.commands.executeCommand('workbench.view.extension.rayDaemonContainer');
       },
       dispose: () => {
+        console.log('disposing current panek ');
         // No-op: WebviewViews are managed by VS Code. We clear the ref instead.
         (global as any).currentPanel = undefined;
       },

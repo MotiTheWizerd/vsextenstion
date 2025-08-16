@@ -1415,3 +1415,4 @@ class MessageHandler {
 }
 
 // MessageHandler is now globally available
+export default MessageHandler;

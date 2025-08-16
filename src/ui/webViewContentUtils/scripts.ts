@@ -8,63 +8,20 @@ import * as path from "path";
  * @param customJS - Custom JavaScript to inject
  * @returns The JavaScript content
  */
-export function getScripts(extensionContext: vscode.ExtensionContext, customJS: string = ""): string {
-  // Get file system paths for reading content
-  const markdownParserPath = path.join(
+export function getScripts(extensionContext: vscode.ExtensionContext, customJS: string = "") : string {
+  // Get the path to the bundled webview JavaScript file
+  const bundledWebviewJsPath = path.join(
     extensionContext.extensionPath,
-    "src/ui/assets/js/webview/markdown-parser.js"
+    "dist/chat-ui.js"
   );
-  const fileIconsPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/js/webview/file-icons.js"
-  );
-  const fileUtilsPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/js/webview/file-utils.js"
-  );
-  const chatUIPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/js/webview/chat-ui.js"
-  );
-  const messageHandlerPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/js/webview/message-handler.js"
-  );
-  const mainScriptPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/js/webview.js"
-  );
-  const panelControlsPath = path.join(
-    extensionContext.extensionPath,
-    "src/ui/assets/js/panel-controls.js"
-  );
-
-  // Load all JS files in order (dependencies first)
-  const jsFiles = [
-    markdownParserPath,
-    fileIconsPath,
-    fileUtilsPath,
-    chatUIPath,
-    messageHandlerPath,
-    panelControlsPath,
-    mainScriptPath,
-  ];
 
   let jsContent = "";
-  for (const jsPath of jsFiles) {
-    try {
-      const fileContent = fs.readFileSync(jsPath, "utf8");
-      // Remove any import/export statements
-      const cleanContent = fileContent
-        .replace(/^import\s+.*?from\s+['"].*?['"]?;\s*$/gm, "")
-        .replace(/^export\s+default\s+/gm, "")
-        .replace(/^export\s+\{[^}]*\}\s*;?\s*$/gm, "");
-      jsContent += "\n" + cleanContent;
-    } catch (error) {
-      console.error(`Failed to load ${jsPath}:`, error);
-      jsContent += `
-// Error loading ${jsPath}`;
-    }
+  try {
+    jsContent = fs.readFileSync(bundledWebviewJsPath, "utf8");
+  } catch (error) {
+    console.error(`Failed to load bundled webview JavaScript: ${bundledWebviewJsPath}`, error);
+    jsContent += `
+// Error loading bundled webview JavaScript`;
   }
 
   // Add custom JS if provided

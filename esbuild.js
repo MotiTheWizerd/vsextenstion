@@ -24,7 +24,8 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
-	const ctx = await esbuild.context({
+	// Build extension
+	const extensionCtx = await esbuild.context({
 		entryPoints: [
 			'src/extension.ts'
 		],
@@ -42,11 +43,31 @@ async function main() {
 			esbuildProblemMatcherPlugin,
 		],
 	});
+
+	// Build webview
+	const webviewCtx = await esbuild.context({
+		entryPoints: [
+			'src/ui/assets/js/webview-bundle.js'
+		],
+		bundle: true,
+		format: 'iife',
+		minify: production,
+		sourcemap: !production,
+		outfile: 'dist/chat-ui.js',
+		logLevel: 'silent',
+		plugins: [
+			esbuildProblemMatcherPlugin,
+		],
+	});
+
 	if (watch) {
-		await ctx.watch();
+		await extensionCtx.watch();
+		await webviewCtx.watch();
 	} else {
-		await ctx.rebuild();
-		await ctx.dispose();
+		await extensionCtx.rebuild();
+		await webviewCtx.rebuild();
+		await extensionCtx.dispose();
+		await webviewCtx.dispose();
 	}
 }
 

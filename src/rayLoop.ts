@@ -16,6 +16,7 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
     // Format the message using the config formatter
     const messageData = config.formatMessage(prompt);
     
+    console.log(`[RayDaemon] Config apiEndpoint: ${config.apiEndpoint}`);
     console.log(`[RayDaemon] Sending to ${config.apiEndpoint}:`, messageData);
     
     // Send to the configured API endpoint
