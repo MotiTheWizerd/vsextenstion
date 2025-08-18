@@ -56,9 +56,17 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
   
   private async processMessage(message: string): Promise<string> {
     console.log("[RayDaemon] processMessage called with message:", message);
-    // Here you would implement your chat processing logic
-    // For now, just echo back the message
-    return `You said: ${message}`;
+    // Send the message to Ray API via rayLoop
+    const { sendToRayLoop } = require('../rayLoop');
+    try {
+       const response = await sendToRayLoop(message);
+       console.log("[RayDaemon] Ray API response:", response);
+       return response;
+     } catch (error) {
+       console.error("[RayDaemon] Error sending message to Ray API:", error);
+       const errorMessage = error instanceof Error ? error.message : String(error);
+       return `Error: Failed to send message to Ray API. ${errorMessage}`;
+     }
   }
 
   constructor(context: vscode.ExtensionContext) {
@@ -124,7 +132,17 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (message) => {
       console.log('[RayDaemon] Received message from webview:', message);
-      switch (message.command) {
+      
+      // Forward messages with 'type' property directly to the webview's message handler
+      if (message.type) {
+        console.log(`[RayDaemon] Forwarding message of type '${message.type}' to webview handler`);
+        webviewView.webview.postMessage(message);
+        return;
+      }
+      
+      // Handle command messages
+      if (message.command) {
+        switch (message.command) {
         case 'openFile':
           if (message.filePath) {
             try {
@@ -169,7 +187,11 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
             console.log('[RayDaemon] No message content in sendMessage command');
           }
           break;
+        default:
+          console.log(`[RayDaemon] Unhandled command: ${message.command}`);
+          break;
       }
+    }
     });
 
     // Expose a small wrapper so existing code that expects a WebviewPanel-like

@@ -73,7 +73,7 @@ class ModernChatUI {
       {
         isMarkdown: true,
         showAvatar: true,
-      }
+      },
     );
   }
 
@@ -85,6 +85,9 @@ class ModernChatUI {
     console.log("Initializing event listeners.");
     // Send message on button click
     this.sendButton.addEventListener("click", () => this.handleSendMessage());
+
+    // Initialize dropdown toggle
+    this.initializeDropdowns();
 
     // Handle keyboard events
     this.chatInput.addEventListener("keydown", (e) => {
@@ -120,7 +123,11 @@ class ModernChatUI {
     // Focus input when clicking in chat area (but not on interactive elements)
     this.chatMessages.addEventListener("click", (e) => {
       // Don't focus input if clicking on interactive elements
-      if (e.target.closest('.tool-count, .tool-file-item, .copy-button, a, button')) {
+      if (
+        e.target.closest(
+          ".tool-count, .tool-file-item, .copy-button, a, button",
+        )
+      ) {
         return;
       }
       this.chatInput.focus();
@@ -171,7 +178,10 @@ class ModernChatUI {
     }
 
     try {
-      console.log("Attempting to post message to extension:", { type: "chat", content: message });
+      console.log("Attempting to post message to extension:", {
+        type: "chat",
+        content: message,
+      });
       this.postMessage({
         type: "chat",
         content: message,
@@ -186,7 +196,7 @@ class ModernChatUI {
           {
             isMarkdown: false,
             showAvatar: true,
-          }
+          },
         );
       }, 30000);
     } catch (error) {
@@ -198,12 +208,25 @@ class ModernChatUI {
         {
           isMarkdown: false,
           showAvatar: true,
-        }
+        },
       );
     }
   }
 
   addMessage(sender, content, options = {}) {
+    console.group(`[ChatUI] Adding message from ${sender}`);
+    console.log("Content length:", content?.length || 0);
+    console.log("Options:", options);
+
+    // Log the current scroll position and height before adding the message
+    const wasScrolledToBottom = this.isScrolledToBottom();
+    console.log("Was scrolled to bottom:", wasScrolledToBottom);
+    console.log(
+      "Current scroll position:",
+      this.chatMessages.scrollTop,
+      "of",
+      this.chatMessages.scrollHeight,
+    );
     const {
       timestamp = new Date(),
       isMarkdown = true,
@@ -289,19 +312,39 @@ class ModernChatUI {
       pre.appendChild(copyButton);
     });
 
+    // Log the message element before adding to DOM
+    console.log("Message element created:", {
+      className: messageDiv.className,
+      innerHTML:
+        messageDiv.innerHTML.substring(0, 100) +
+        (messageDiv.innerHTML.length > 100 ? "..." : ""),
+      dataset: { ...messageDiv.dataset },
+    });
+
+    // Add the message to the DOM
+    console.log("Adding message to chatMessages container");
     this.chatMessages.appendChild(messageDiv);
-    
+
+    // Log the updated scroll height
+    console.log("New scroll height:", this.chatMessages.scrollHeight);
+
+    // Scroll to the bottom if we were already at the bottom
+    if (wasScrolledToBottom) {
+      console.log("Auto-scrolling to bottom");
+      this.scrollToBottom();
+    }
+
     // Add click handler for expandable tool counts
-    const expandableCount = messageDiv.querySelector('.tool-count.expandable');
+    const expandableCount = messageDiv.querySelector(".tool-count.expandable");
     if (expandableCount) {
-      expandableCount.addEventListener('click', (e) => {
+      expandableCount.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.fileUtils.toggleToolDropdown(messageDiv);
       });
     }
-    
-    this.scrollToBottom();
+
+    console.groupEnd();
 
     return messageDiv;
   }
@@ -342,7 +385,17 @@ class ModernChatUI {
     this.typingIndicator.classList.toggle("show", show);
     if (show) {
       this.scrollToBottom();
+    } else {
+      console.log("Not auto-scrolling - user has scrolled up");
     }
+
+    // Log the final state
+    console.log(
+      "Final scroll position:",
+      this.chatMessages.scrollTop,
+      "of",
+      this.chatMessages.scrollHeight,
+    );
   }
 
   handlePaste(event) {
@@ -416,8 +469,77 @@ class ModernChatUI {
   }
 
   focusInput() {
-    this.chatInput?.focus();
-    this.ensureInputWidth();
+    if (this.chatInput) {
+      this.chatInput.focus();
+    }
+  }
+
+  /**
+   * Initialize dropdown toggles
+   */
+  initializeDropdowns() {
+    // Toggle dropdown on button click
+    document.addEventListener("click", (e) => {
+      const dropdownToggle = e.target.closest(".dropdown-toggle");
+      const dropdown = dropdownToggle?.closest(".dropdown");
+
+      // Close all other dropdowns
+      document.querySelectorAll(".dropdown").forEach((dropdown) => {
+        if (dropdown !== dropdownToggle?.closest(".dropdown")) {
+          dropdown.classList.remove("show");
+        }
+      });
+
+      // Toggle the clicked dropdown
+      if (dropdownToggle) {
+        e.preventDefault();
+        dropdown?.classList.toggle("show");
+      } else {
+        // Close dropdown when clicking outside
+        document.querySelectorAll(".dropdown").forEach((dropdown) => {
+          dropdown.classList.remove("show");
+        });
+      }
+    });
+
+    // Handle dropdown item selection
+    document.addEventListener("click", (e) => {
+      const dropdownItem = e.target.closest(".dropdown-item");
+      if (!dropdownItem) {
+        return;
+      }
+
+      const value = dropdownItem.dataset.value;
+      const dropdown = dropdownItem.closest(".dropdown");
+      const dropdownToggle = dropdown?.querySelector(".dropdown-toggle");
+
+      if (dropdownToggle) {
+        // Update the button text based on selection
+        const icon = dropdownToggle.querySelector("span");
+        if (icon) {
+          const selectedText = dropdownItem.textContent.trim();
+          icon.textContent = value === "agent" ? "∞ Agent" : selectedText;
+        }
+
+        // Close the dropdown
+        dropdown.classList.remove("show");
+
+        // Notify the extension about the selection
+        this.postMessage({
+          command: "agentModeSelected",
+          mode: value,
+        });
+      }
+    });
+
+    // Close dropdown when pressing Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        document.querySelectorAll(".dropdown").forEach((dropdown) => {
+          dropdown.classList.remove("show");
+        });
+      }
+    });
   }
 }
 

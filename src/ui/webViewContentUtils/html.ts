@@ -65,12 +65,29 @@ export function getHtml(config: Required<WebviewConfig>, cssContent: string, jsC
               <!-- Row 3: Controls (Agent, Auto, Icons) -->
               <div class="input-controls-row">
                 <div class="input-controls">
-                  <button class="control-button">
-                    <span>∞ Agent</span>
-                    <svg class="dropdown-arrow" viewBox="0 0 12 12" fill="currentColor">
-                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </button>
+                  <div class="dropdown">
+                    <button class="control-button dropdown-toggle" id="agentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      <span>∞ Agent</span>
+                      <svg class="dropdown-arrow" viewBox="0 0 12 12" fill="currentColor">
+                        <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                    <div class="dropdown-menu" aria-labelledby="agentDropdown">
+                      <button class="dropdown-item" data-value="agent">
+                        <span>Agent</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      </button>
+                      <button class="dropdown-item" data-value="chat">
+                        <span>Chat</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                   <button class="control-button">
                     <span>Auto</span>
                     <svg class="dropdown-arrow" viewBox="0 0 12 12" fill="currentColor">

@@ -50,7 +50,7 @@ class FileUtils {
       (result) =>
         result &&
         typeof result === "object" &&
-        (result.filePath || result.path || result.file)
+        (result.filePath || result.path || result.file),
     );
   }
 
@@ -191,7 +191,7 @@ class ModernChatUI {
     this.chatMessages.addEventListener("click", (e) => {
       if (
         e.target.closest(
-          ".tool-count, .tool-file-item, .copy-button, a, button"
+          ".tool-count, .tool-file-item, .copy-button, a, button",
         )
       ) {
         return;
@@ -258,7 +258,7 @@ class ModernChatUI {
         this.addMessage(
           "assistant",
           "Sorry, I didn't receive a response. Please try again.",
-          { isMarkdown: false, showAvatar: true }
+          { isMarkdown: false, showAvatar: true },
         );
       }, 30000);
     } catch (error) {
@@ -267,7 +267,7 @@ class ModernChatUI {
       this.addMessage(
         "assistant",
         "Failed to send message. Please try again.",
-        { isMarkdown: false, showAvatar: true }
+        { isMarkdown: false, showAvatar: true },
       );
     }
   }
@@ -280,6 +280,7 @@ class ModernChatUI {
       replaceLast = false,
       isWorking = false,
       isToolMessage = false,
+      customElement = null,
     } = options;
 
     if (replaceLast) {
@@ -319,7 +320,10 @@ class ModernChatUI {
     const contentDiv = document.createElement("div");
     contentDiv.className = "message-content";
 
-    if (isMarkdown && content) {
+    if (customElement) {
+      // If we have a custom element, use it
+      contentDiv.appendChild(customElement);
+    } else if (isMarkdown && content) {
       contentDiv.innerHTML = MarkdownParser.parse(content);
     } else {
       contentDiv.textContent = content || "";
@@ -430,6 +434,34 @@ class ModernChatUI {
 class MessageHandler {
   constructor(chatUI) {
     this.chatUI = chatUI;
+    // Track tool status messages to handle their lifecycle
+    this.activeToolStatusMessages = [];
+    this.finalToolStatusMessage = null;
+  }
+
+  // Remove transient tool status messages (starting/working) when a new one arrives
+  removeTransientToolStatusMessages() {
+    console.log(
+      `Removing transient tool messages. Active count: ${this.activeToolStatusMessages.length}`,
+    );
+
+    // Remove all messages except the final one
+    if (this.activeToolStatusMessages.length > 0) {
+      this.activeToolStatusMessages.forEach((msg) => {
+        // Skip the final message (don't remove it)
+        if (msg !== this.finalToolStatusMessage) {
+          console.log("Removing transient tool status message");
+          if (msg && msg.parentNode) {
+            msg.remove();
+          }
+        }
+      });
+
+      // Reset the array, keeping only the final message if it exists
+      this.activeToolStatusMessages = this.finalToolStatusMessage
+        ? [this.finalToolStatusMessage]
+        : [];
+    }
   }
 
   handleIncomingMessage(data) {
@@ -444,29 +476,54 @@ class MessageHandler {
       case "addMessage":
         this.handleAddMessage(data);
         break;
-      case "response":
+      case "rayResponse":
         this.handleResponse(data);
         break;
       case "error":
         this.handleError(data);
         break;
       case "toolStatus":
+        console.log("✅ Tool Status:", data);
         this.handleToolStatus(data);
         break;
       case "clearChat":
         this.chatUI.clearChat();
         break;
-      case "setStatus":
-        this.chatUI.setStatus(data.status);
-        break;
-      case "showTypingIndicator":
-        this.chatUI.showTypingIndicator(true);
-        break;
-      case "hideTypingIndicator":
-        this.chatUI.showTypingIndicator(false);
+      case "statusUpdate":
+        this.chatUI.setStatus(data.content);
         break;
       default:
-        console.log("Unknown message type:", data.type);
+        console.log("Unknown message type", data.type);
+    }
+
+    // Handle rayResponse type messages
+    if (data.type === "rayResponse" && data.data) {
+      const { content, isWorking, isFinal, isCommandResult } = data.data;
+
+      if (content) {
+        // Skip old command result messages only if they're not final responses
+        if (isCommandResult && !isFinal) {
+          console.log("Skipping command result message (not final)");
+          return;
+        }
+
+        // If this is a final response and we have a working message, replace it
+        if (isFinal !== false && !isWorking) {
+          const workingMessage = this.chatUI.chatMessages.querySelector(
+            '[data-working="true"]',
+          );
+          if (workingMessage) {
+            workingMessage.remove();
+          }
+        }
+
+        this.chatUI.addMessage("assistant", content, {
+          isMarkdown: true,
+          showAvatar: true,
+          replaceLast: isWorking,
+          isWorking: isWorking,
+        });
+      }
     }
   }
 
@@ -479,11 +536,26 @@ class MessageHandler {
   }
 
   handleResponse(data) {
-    this.chatUI.addMessage("assistant", data.content, {
-      isMarkdown: true,
-      showAvatar: true,
-      replaceLast: data.replaceLast,
-    });
+    // Check if there are file contents
+    if (data.data?.fileContents) {
+      data.data.fileContents.forEach((fileContent) => {
+        const langSpec = FileUtils.getLanguageFromPath(fileContent.path);
+        const fileBlock = `\`\`\`${langSpec}\n${fileContent.content}\n\`\`\``;
+        const content = `📄 **${fileContent.path}**\n\n${fileBlock}`;
+
+        this.chatUI.addMessage("assistant", content, {
+          isMarkdown: true,
+          showAvatar: true,
+        });
+      });
+    } else {
+      // Handle regular response messages
+      this.chatUI.addMessage("assistant", data.content, {
+        isMarkdown: true,
+        showAvatar: true,
+        replaceLast: data.replaceLast,
+      });
+    }
   }
 
   handleError(data) {
@@ -494,29 +566,352 @@ class MessageHandler {
   }
 
   handleToolStatus(data) {
-    // Simple tool status handling
-    const { status, tools } = data;
+    // Enhanced tool status handling with modern design
+    const {
+      status,
+      tools,
+      totalCount,
+      currentIndex,
+      successCount,
+      failedCount,
+      results,
+    } = data.data;
+    console.log("✅ Tool Status:", data);
+    console.log("Status value:", status, "Type:", typeof status);
+
+    // Remove previous non-final tool status messages when a new one arrives
+    this.removeTransientToolStatusMessages();
+
+    // Get tool icon based on tool name
+    const getToolIcon = (toolName) => {
+      if (!toolName) return "tool-default-icon";
+
+      const toolNameLower = toolName.toLowerCase();
+      // Exact function name matching for better accuracy
+      if (toolNameLower === "fetch") return "tool-fetch-icon";
+      if (toolNameLower === "read_file") return "tool-read-icon";
+      if (toolNameLower === "edit_file") return "tool-edit-file-icon";
+      if (toolNameLower === "write_file") return "tool-write-icon";
+      if (toolNameLower === "web_search") return "tool-web-search-icon";
+      if (toolNameLower === "terminal") return "tool-terminal-icon";
+      if (toolNameLower === "grep") return "tool-grep-icon";
+      if (toolNameLower === "find_path") return "tool-find-path-icon";
+      if (toolNameLower === "list_directory") return "tool-list-directory-icon";
+      if (toolNameLower === "create_directory")
+        return "tool-create-directory-icon";
+      if (toolNameLower === "diagnostics") return "tool-diagnostics-icon";
+      if (toolNameLower === "delete_path") return "tool-delete-path-icon";
+      if (toolNameLower === "copy_path") return "tool-copy-path-icon";
+      if (toolNameLower === "move_path") return "tool-move-path-icon";
+      if (toolNameLower === "thinking") return "tool-thinking-icon";
+      if (toolNameLower === "now") return "tool-now-icon";
+
+      // Fallback to pattern matching for generic tools
+      if (toolNameLower.includes("fetch") || toolNameLower.includes("get")) {
+        return "tool-fetch-icon";
+      } else if (
+        toolNameLower.includes("write") ||
+        toolNameLower.includes("edit") ||
+        toolNameLower.includes("create")
+      ) {
+        return "tool-write-icon";
+      } else if (
+        toolNameLower.includes("read") ||
+        toolNameLower.includes("file")
+      ) {
+        return "tool-read-icon";
+      } else if (
+        toolNameLower.includes("terminal") ||
+        toolNameLower.includes("exec")
+      ) {
+        return "tool-terminal-icon";
+      } else if (
+        toolNameLower.includes("search") ||
+        toolNameLower.includes("find") ||
+        toolNameLower.includes("grep")
+      ) {
+        return "tool-search-icon";
+      } else if (toolNameLower.includes("diagnostic")) {
+        return "tool-diagnostics-icon";
+      } else {
+        return "tool-default-icon";
+      }
+    };
+
+    // Create tool status element with enhanced design
+    const createToolStatusElement = (statusType, toolList, details = {}) => {
+      const element = document.createElement("div");
+      element.className = `tool-status ${statusType}`;
+
+      // Get the first tool name for main icon
+      const mainTool = tools && tools.length > 0 ? tools[0] : "";
+      const mainIcon = getToolIcon(mainTool);
+
+      // Set emoji based on status
+      let statusEmoji = "🛠️";
+      if (statusType === "starting") statusEmoji = "🚀";
+      else if (statusType === "working") statusEmoji = "⚙️";
+      else if (statusType === "completed") statusEmoji = "✅";
+      else if (statusType === "partial") statusEmoji = "⚠️";
+      else if (statusType === "failed") statusEmoji = "❌";
+
+      // Set title based on status
+      let title = "";
+      if (statusType === "starting") title = `Starting: ${toolList}`;
+      else if (statusType === "working") title = `Working: ${toolList}`;
+      else if (statusType === "completed") title = `Completed: ${toolList}`;
+      else if (statusType === "partial")
+        title = `Partially Completed: ${toolList}`;
+      else if (statusType === "failed") title = `Failed: ${toolList}`;
+
+      // Create status content
+      let progressHTML = "";
+      if (statusType === "working") {
+        progressHTML = `<div class="tool-progress"></div>`;
+      }
+
+      // Create badge HTML if we have count info
+      let badgeHTML = "";
+      if (totalCount) {
+        if (statusType === "starting" || statusType === "working") {
+          badgeHTML = `<span class="tool-status-badge">${currentIndex || 1}/${totalCount}</span>`;
+        } else if (statusType === "completed" && successCount !== undefined) {
+          badgeHTML = `<span class="tool-status-badge">${successCount}/${totalCount} successful</span>`;
+        } else if (statusType === "partial") {
+          badgeHTML = `<span class="tool-status-badge">${successCount}/${totalCount} successful</span>`;
+        } else if (statusType === "failed") {
+          badgeHTML = `<span class="tool-status-badge">${failedCount || totalCount}/${totalCount} failed</span>`;
+        }
+      }
+
+      // Build description based on status
+      let description = "";
+      if (statusType === "starting") {
+        description = "Initializing operation...";
+      } else if (statusType === "working") {
+        description = `Processing ${currentIndex}/${totalCount}`;
+      } else if (statusType === "completed") {
+        description = "All operations completed successfully";
+      } else if (statusType === "partial") {
+        description = `${successCount} succeeded, ${failedCount} failed`;
+      } else if (statusType === "failed") {
+        description = "Operation failed";
+      }
+
+      // Assemble the HTML
+      element.innerHTML = `
+        <div class="tool-status-header">
+          <div class="tool-status-icon ${mainIcon}">${statusEmoji}</div>
+          <div class="tool-status-content">
+            <div class="tool-status-title">${title}</div>
+            <div class="tool-status-description">${description}</div>
+            ${badgeHTML ? `<div class="tool-status-meta">${badgeHTML}</div>` : ""}
+          </div>
+        </div>
+        ${progressHTML}
+        ${
+          tools && tools.length > 1
+            ? `
+          <div class="tool-details-toggle">View details (${tools.length} operations)</div>
+          <div class="tool-details">
+            ${tools
+              .map(
+                (tool, i) => `
+              <div class="tool-detail-item">
+                <span class="tool-icon ${getToolIcon(tool)}"></span> ${tool}
+              </div>
+            `,
+              )
+              .join("")}
+          </div>
+        `
+            : ""
+        }
+      `;
+
+      // Add click handler for the details toggle if it exists
+      const detailsToggle = element.querySelector(".tool-details-toggle");
+      if (detailsToggle) {
+        detailsToggle.addEventListener("click", () => {
+          element.classList.toggle("expanded");
+          detailsToggle.textContent = element.classList.contains("expanded")
+            ? `Hide details (${tools.length} operations)`
+            : `View details (${tools.length} operations)`;
+        });
+      }
+
+      return element;
+    };
+
+    // Helper to determine if a message is final (completed/failed/partial)
+    const isFinalMessage = (statusType) => {
+      return ["completed", "failed", "partial"].includes(statusType);
+    };
+
+    // Helper to add a tool status message and track it
+    const addToolStatusMessage = (statusType, toolText, details = {}) => {
+      const messageEl = this.chatUI.addMessage("system", "", {
+        isMarkdown: false,
+        isToolMessage: true,
+        customElement: createToolStatusElement(statusType, toolText, details),
+      });
+
+      // Track this message
+      this.activeToolStatusMessages.push(messageEl);
+
+      // If this is a final message, store it separately
+      if (isFinalMessage(statusType)) {
+        this.finalToolStatusMessage = messageEl;
+      }
+
+      return messageEl;
+    };
 
     if (status === "starting") {
-      const toolList =
-        tools && tools.length > 0 ? tools.join(", ") : "Processing";
-      this.chatUI.addMessage("system", `🚀 Starting: ${toolList}`, {
-        isMarkdown: false,
-        isToolMessage: true,
+      console.log("🚀 HIT STARTING CONDITION! 🚀🚀", data);
+      // Limit display of tool names if there are too many
+      let toolList = "Processing";
+      if (tools && tools.length > 0) {
+        toolList =
+          tools.length > 3
+            ? `${tools.slice(0, 3).join(", ")} and ${tools.length - 3} more`
+            : tools.join(", ");
+      }
+      console.log("Tool list:", toolList);
+
+      try {
+        addToolStatusMessage("starting", toolList, {
+          totalCount,
+          tools,
+        });
+        console.log("Starting message added successfully");
+      } catch (error) {
+        console.error("Error adding starting message:", error);
+      }
+    } else if (status === "working") {
+      console.log("⚙️ HIT WORKING CONDITION");
+      // Show the current tool being worked on
+      const currentTool = tools && tools.length > 0 ? tools[0] : "Task";
+      addToolStatusMessage("working", currentTool, {
+        totalCount,
+        currentIndex,
+        tools,
       });
     } else if (status === "completed") {
-      const toolList = tools && tools.length > 0 ? tools.join(", ") : "Task";
-      this.chatUI.addMessage("system", `✅ Completed: ${toolList}`, {
-        isMarkdown: false,
-        isToolMessage: true,
+      console.log("✅ HIT COMPLETED CONDITION");
+      // Show a concise summary for completed tasks
+      let toolList = "Task";
+      if (tools && tools.length > 0) {
+        toolList =
+          tools.length > 3 ? `${tools.length} operations` : tools.join(", ");
+      }
+      addToolStatusMessage("completed", toolList, {
+        totalCount,
+        successCount,
+        failedCount,
+        tools,
+      });
+    } else if (status === "partial") {
+      console.log("⚠️ HIT PARTIAL CONDITION");
+      // For partial completion, show the success/failure ratio
+      let toolList = "Task";
+      if (tools && tools.length > 0) {
+        toolList =
+          tools.length > 3 ? `${tools.length} operations` : tools.join(", ");
+      }
+      addToolStatusMessage("partial", toolList, {
+        totalCount,
+        successCount,
+        failedCount,
+        tools,
       });
     } else if (status === "failed") {
-      const toolList = tools && tools.length > 0 ? tools.join(", ") : "Task";
-      this.chatUI.addMessage("system", `❌ Failed: ${toolList}`, {
-        isMarkdown: false,
-        isToolMessage: true,
+      console.log("❌ HIT FAILED CONDITION");
+      let toolList = "Task";
+      if (tools && tools.length > 0) {
+        toolList =
+          tools.length > 3 ? `${tools.length} operations` : tools.join(", ");
+      }
+      addToolStatusMessage("failed", toolList, {
+        totalCount,
+        failedCount,
+        tools,
       });
+    } else {
+      console.log("No condition matched. Status:", status);
     }
+
+    // Track final messages for proper lifecycle management
+    if (status === "completed" || status === "partial" || status === "failed") {
+      this.finalToolStatusMessage = document.querySelector(
+        ".message.system:last-child",
+      );
+    }
+
+    // Track all tool status messages
+    const latestMessage = document.querySelector(".message.system:last-child");
+    if (latestMessage) {
+      this.activeToolStatusMessages.push(latestMessage);
+    }
+
+    // Force system messages to be visible
+    setTimeout(() => {
+      console.log("Applying CSS fixes...");
+      document.querySelectorAll(".message.system").forEach((el) => {
+        console.log("Found system message:", el);
+        el.style.display = "flex";
+        el.style.width = "100%";
+      });
+      document
+        .querySelectorAll(".message.system .message-content")
+        .forEach((el) => {
+          el.style.display = "block";
+          el.style.width = "100%";
+          el.style.maxWidth = "100%";
+        });
+    }, 100); // Reduced timeout for faster debugging
+  }
+
+  // Remove transient tool status messages (starting/working) when a new one arrives
+  removeTransientToolStatusMessages() {
+    console.log(
+      `Removing transient tool messages. Active count: ${this.activeToolStatusMessages.length}`,
+    );
+
+    // Remove all messages except the final one
+    if (this.activeToolStatusMessages.length > 0) {
+      this.activeToolStatusMessages.forEach((msg) => {
+        // Skip the final message (don't remove it)
+        if (msg !== this.finalToolStatusMessage) {
+          console.log("Removing transient tool status message");
+          if (msg && msg.parentNode) {
+            msg.remove();
+          }
+        }
+      });
+
+      // Reset the array, keeping only the final message if it exists
+      this.activeToolStatusMessages = this.finalToolStatusMessage
+        ? [this.finalToolStatusMessage]
+        : [];
+    }
+
+    // Force system messages to be visible
+    setTimeout(() => {
+      console.log("Applying CSS fixes...");
+      document.querySelectorAll(".message.system").forEach((el) => {
+        console.log("Found system message:", el);
+        el.style.display = "flex";
+        el.style.width = "100%";
+      });
+      document
+        .querySelectorAll(".message.system .message-content")
+        .forEach((el) => {
+          el.style.display = "block";
+          el.style.width = "100%";
+          el.style.maxWidth = "100%";
+        });
+    }, 100); // Reduced timeout for faster debugging
   }
 }
 
@@ -543,7 +938,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Focus input after initialization
   setTimeout(() => {
-    chatUI.focusInput();
+    // chatUI.focusInput();
     chatUI.ensureInputWidth();
   }, 100);
 

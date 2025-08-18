@@ -1,172 +1,290 @@
-import * as vscode from 'vscode';
-import { logInfo, logError } from '../logging';
-import { RayResponsePayload } from '../commands/execFactory';
-import { sendCommandResultsToRay } from '../rayLoop';
-import { CommandExecutor } from '.';
+import * as vscode from "vscode";
+import { logInfo, logError } from "../logging";
+import { RayResponsePayload } from "../commands/execFactory";
+import { sendCommandResultsToRay } from "../rayLoop";
+import { CommandExecutor } from ".";
 
 export class RayResponseHandler {
-    private processedResponses = new Set<string>();
-    private lastToolCompletionTime = 0;
+  private processedResponses = new Set<string>();
+  private lastToolCompletionTime = 0;
+  private debugMode = false; // Set to true to enable more verbose logging
 
-    constructor(
-        private commandExecutor: CommandExecutor
-    ) {}
+  constructor(private commandExecutor: CommandExecutor) {}
 
-    private getCurrentPanel(): any {
-        return (global as any).currentPanel;
+  private getCurrentPanel(): any {
+    return (global as any).currentPanel;
+  }
+
+  handleRayPostResponse(rayResponse: any): void {
+    console.log("[RayDaemon] *** handleRayPostResponse CALLED ***");
+
+    // Safety check for null responses
+    if (!rayResponse) {
+      console.error(
+        "[RayDaemon] Received null/undefined response in handleRayPostResponse",
+      );
+      return;
     }
 
-    handleRayPostResponse(rayResponse: any): void {
-        console.log("[RayDaemon] *** handleRayPostResponse CALLED ***");
-        console.log("[RayDaemon] Ray response:", JSON.stringify(rayResponse, null, 2));
-
-        const requestKey = JSON.stringify(rayResponse);
-        if (this.processedResponses.has(requestKey)) {
-            console.log("[RayDaemon] Skipping duplicate webhook request processing");
-            return;
-        }
-
-        this.processedResponses.add(requestKey);
-        this.cleanupProcessedResponses();
-
-        console.log("[RayDaemon] Processing webhook request, calling processRayResponse...");
-        this.processRayResponse(rayResponse);
+    // Log full response in debug mode only to avoid excessive logging
+    if (this.debugMode) {
+      console.log(
+        "[RayDaemon] Ray response:",
+        JSON.stringify(rayResponse, null, 2),
+      );
+    } else {
+      // Log a compact summary for regular mode
+      const hasCalls =
+        Array.isArray(rayResponse.command_calls) &&
+        rayResponse.command_calls.length > 0;
+      const contentLength =
+        rayResponse.content?.length || rayResponse.message?.length || 0;
+      console.log(
+        `[RayDaemon] Response summary: content_length=${contentLength}, has_commands=${hasCalls}, is_final=${!!rayResponse.is_final}`,
+      );
     }
 
-    async processRayResponse(rayResponse: any): Promise<void> {
-        if (!rayResponse) {
-            logError("Empty response received");
-            return;
-        }
-
-        const payload = rayResponse as RayResponsePayload;
-
-        // Handle working status
-        if (payload.status === "start working" || payload.status === "working") {
-            this.handleWorkingStatus();
-            return;
-        }
-
-        // Extract content
-        const content = this.extractContent(payload);
-        if (!content) { return; }
-
-        const isFinalBoolean: boolean = typeof payload.is_final === "string" 
-            ? payload.is_final === "true" 
-            : !!payload.is_final;
-
-        // Check if this is a completion message after tool execution
-        // If we don't have command_calls and we have content, it's likely a completion message
-        const hasCommandCalls = Array.isArray(payload.command_calls) && payload.command_calls.length > 0;
-        const isCompletionMessage = !hasCommandCalls && !!content && content.length > 0;
-
-        console.log(`[RayDaemon] processRayResponse - hasCommandCalls: ${hasCommandCalls}, isCompletionMessage: ${isCompletionMessage}, isFinal: ${isFinalBoolean}`);
-        console.log(`[RayDaemon] processRayResponse - content: "${content}"`);
-
-        const currentPanel = this.getCurrentPanel();
-        if (!currentPanel) {
-            this.handleNoPanelError();
-            return;
-        }
-
-        try {
-            const finalFlag: boolean = isFinalBoolean || isCompletionMessage;
-            await this.processPayload(payload, content, finalFlag, currentPanel);
-        } catch (error) {
-            this.handleProcessingError(error);
-        }
+    // Create a hash key for deduplication
+    const requestKey = JSON.stringify(rayResponse);
+    if (this.processedResponses.has(requestKey)) {
+      console.log("[RayDaemon] Skipping duplicate webhook request processing");
+      return;
     }
 
-    private cleanupProcessedResponses(): void {
-        if (this.processedResponses.size > 100) {
-            const firstKey = this.processedResponses.values().next().value;
-            if (firstKey) {
-                this.processedResponses.delete(firstKey);
-            }
-        }
+    this.processedResponses.add(requestKey);
+    this.cleanupProcessedResponses();
+
+    console.log(
+      "[RayDaemon] Processing webhook request, calling processRayResponse...",
+    );
+    this.processRayResponse(rayResponse);
+  }
+
+  async processRayResponse(rayResponse: any): Promise<void> {
+    if (!rayResponse) {
+      logError("Empty response received");
+      return;
     }
 
-    private handleWorkingStatus(): void {
-        logInfo("Ray is starting to work, showing working message to user");
-        const currentPanel = this.getCurrentPanel();
-        if (currentPanel) {
-            currentPanel.webview.postMessage({
-                type: "rayResponse",
-                data: {
-                    content: "🔄 **Ray is working on your request...** \n\nPlease wait while Ray processes your message. You'll receive the response shortly.",
-                    isFinal: false,
-                    isWorking: true,
-                }
-            });
-        }
+    const payload = rayResponse as RayResponsePayload;
+    console.log(
+      "[RayDaemon] Processing ray response, payload keys:",
+      Object.keys(payload),
+    );
+
+    // Handle working status
+    if (payload.status === "start working" || payload.status === "working") {
+      this.handleWorkingStatus();
+      return;
     }
 
-    private extractContent(payload: RayResponsePayload): string {
-        if (payload.message) {
-            return payload.message;
-        } else if (payload.content) {
-            return payload.content;
-        } else {
-            logError("No message or content in response:", payload);
-            return "";
-        }
+    // Extract content
+    const content = this.extractContent(payload);
+    if (!content) {
+      console.log(
+        "[RayDaemon] No content found in response, checking for command_calls",
+      );
+      // Continue processing even without content - there could be tool calls
     }
 
-    private handleNoPanelError(): void {
-        logError("No active chat panel to display message");
-        vscode.window.showErrorMessage(
-            "No active chat panel. Please open the RayDaemon panel first using the command palette (Ctrl+Shift+P > RayDaemon: Open Panel)"
+    // Determine if this is a final response
+    const isFinalBoolean: boolean =
+      typeof payload.is_final === "string"
+        ? payload.is_final === "true"
+        : !!payload.is_final;
+
+    // Check if this is a completion message after tool execution
+    // If we don't have command_calls and we have content, it's likely a completion message
+    const hasCommandCalls =
+      Array.isArray(payload.command_calls) && payload.command_calls.length > 0;
+    const isCompletionMessage =
+      !hasCommandCalls && !!content && content.length > 0;
+
+    console.log(
+      `[RayDaemon] processRayResponse - hasCommandCalls: ${hasCommandCalls}, isCompletionMessage: ${isCompletionMessage}, isFinal: ${isFinalBoolean}`,
+    );
+    if (content) {
+      console.log(
+        `[RayDaemon] processRayResponse - content preview: "${content.substring(0, 100)}${content.length > 100 ? "..." : ""}"`,
+      );
+    }
+
+    // Get current panel reference
+    const currentPanel = this.getCurrentPanel();
+    if (!currentPanel) {
+      this.handleNoPanelError();
+      return;
+    }
+
+    try {
+      // Determine the final flag based on explicit is_final or inferred completion message
+      const finalFlag: boolean = isFinalBoolean || isCompletionMessage;
+
+      // Important: log the final decision so we can trace the flow
+      console.log(
+        `[RayDaemon] Final decision - processing payload with isFinal=${finalFlag}`,
+      );
+
+      // Process the payload - this handles both tool calls and normal responses
+      await this.processPayload(
+        payload,
+        content || "",
+        finalFlag,
+        currentPanel,
+      );
+    } catch (error) {
+      this.handleProcessingError(error);
+    }
+  }
+
+  private cleanupProcessedResponses(): void {
+    if (this.processedResponses.size > 100) {
+      const firstKey = this.processedResponses.values().next().value;
+      if (firstKey) {
+        this.processedResponses.delete(firstKey);
+      }
+    }
+  }
+
+  private handleWorkingStatus(): void {
+    logInfo("Ray is starting to work, showing working message to user");
+    const currentPanel = this.getCurrentPanel();
+    if (currentPanel) {
+      currentPanel.webview.postMessage({
+        type: "rayResponse",
+        data: {
+          content:
+            "🔄 **Ray is working on your request...** \n\nPlease wait while Ray processes your message. You'll receive the response shortly.",
+          isFinal: false,
+          isWorking: true,
+        },
+      });
+    }
+  }
+
+  private extractContent(payload: RayResponsePayload): string {
+    // Check all common content fields in order of preference
+    if (payload.message) {
+      return payload.message;
+    } else if (payload.content) {
+      return payload.content;
+    } else if (payload.response) {
+      return payload.response;
+    } else if (payload.text) {
+      return payload.text;
+    } else {
+      // Only log error if there are no command calls
+      const hasCommandCalls =
+        Array.isArray(payload.command_calls) &&
+        payload.command_calls.length > 0;
+      if (!hasCommandCalls) {
+        logError("No message, content, response or text in payload:", payload);
+      } else {
+        console.log(
+          "[RayDaemon] No content found, but command_calls are present - continuing with execution",
         );
+      }
+      return "";
     }
+  }
 
-    private async processPayload(payload: any, content: string, isFinal: boolean, currentPanel: any): Promise<void> {
-        const commandCalls = payload.command_calls || payload.command_calls;
+  private handleNoPanelError(): void {
+    logError("No active chat panel to display message");
+    vscode.window.showErrorMessage(
+      "No active chat panel. Please open the RayDaemon panel first using the command palette (Ctrl+Shift+P > RayDaemon: Open Panel)",
+    );
+  }
 
-        if (Array.isArray(commandCalls) && commandCalls.length > 0) {
-            console.log("=== FOUND COMMAND CALLS - EXECUTING TOOLS ===");
-            
-            if (currentPanel && content) {
-                currentPanel.webview.postMessage({
-                    type: "rayResponse",
-                    data: {
-                        content: content,
-                        isFinal: false,
-                        isWorking: false,
-                    }
-                });
-            }
+  private async processPayload(
+    payload: any,
+    content: string,
+    isFinal: boolean,
+    currentPanel: any,
+  ): Promise<void> {
+    console.log(
+      `[RayDaemon] Processing payload - content length: ${content?.length || 0}, isFinal: ${isFinal}`,
+    );
 
-            await this.commandExecutor.executeCommandCallsAndSendResults(content, commandCalls);
-        } else {
-            console.log("=== NO COMMAND CALLS - NORMAL RESPONSE ===");
-            console.log(`[RayDaemon] Sending completion message to webview - content: "${content}", isFinal: ${isFinal}`);
-            
-            if (currentPanel) {
-                currentPanel.webview.postMessage({
-                    type: "rayResponse",
-                    data: { 
-                        content, 
-                        isFinal,
-                        isWorking: false
-                    }
-                });
-            }
-        }
-    }
+    // Check for command calls in either command_calls (preferred) or commandCalls (legacy) property
+    const commandCalls = payload.command_calls || payload.commandCalls;
 
-    private handleProcessingError(error: any): void {
-        logError("Error processing Ray response:", error);
+    if (Array.isArray(commandCalls) && commandCalls.length > 0) {
+      console.log("=== FOUND COMMAND CALLS - EXECUTING TOOLS ===");
+      console.log(
+        `[RayDaemon] Found ${commandCalls.length} command calls to execute`,
+      );
 
-        const currentPanel = this.getCurrentPanel();
+      // Always show the initial message from Ray before executing tools
+      if (currentPanel && content) {
+        console.log(
+          `[RayDaemon] Sending non-final response to webview before tool execution`,
+        );
+        currentPanel.webview.postMessage({
+          type: "rayResponse",
+          data: {
+            content: content,
+            isFinal: false,
+            isWorking: false,
+          },
+        });
+      }
+
+      try {
+        // Execute the commands and let the commandExecutor handle sending results back to Ray
+        console.log(`[RayDaemon] Executing command calls and sending results`);
+        await this.commandExecutor.executeCommandCallsAndSendResults(
+          content,
+          commandCalls,
+        );
+        console.log(`[RayDaemon] Command execution completed successfully`);
+      } catch (error) {
+        console.error(`[RayDaemon] Error executing commands:`, error);
+
+        // Still show something to the user if command execution fails
         if (currentPanel) {
-            currentPanel.webview.postMessage({
-                type: "rayResponse",
-                data: {
-                    content: `❌ **Error processing response:** ${error instanceof Error ? error.message : String(error)}`,
-                    isFinal: true,
-                    isWorking: false,
-                }
-            });
+          currentPanel.webview.postMessage({
+            type: "rayResponse",
+            data: {
+              content: `❌ **Error executing tools:** ${error instanceof Error ? error.message : String(error)}`,
+              isFinal: true,
+              isWorking: false,
+            },
+          });
         }
+      }
+    } else {
+      console.log("=== NO COMMAND CALLS - NORMAL RESPONSE ===");
+      console.log(
+        `[RayDaemon] Sending completion message to webview - content: "${content}", isFinal: ${isFinal}`,
+      );
+
+      // This is either a final response after tools or a direct response with no tools
+      if (currentPanel) {
+        currentPanel.webview.postMessage({
+          type: "rayResponse",
+          data: {
+            content,
+            isFinal,
+            isWorking: false,
+          },
+        });
+      }
     }
+  }
+
+  private handleProcessingError(error: any): void {
+    logError("Error processing Ray response:", error);
+
+    const currentPanel = this.getCurrentPanel();
+    if (currentPanel) {
+      currentPanel.webview.postMessage({
+        type: "rayResponse",
+        data: {
+          content: `❌ **Error processing response:** ${error instanceof Error ? error.message : String(error)}`,
+          isFinal: true,
+          isWorking: false,
+        },
+      });
+    }
+  }
 }

@@ -1,0 +1,144 @@
+/* Tool Icons CSS - Provides specific icons for each tool type */
+
+/* Tool-specific icons using Unicode emojis
+   Note: These could be replaced with SVG icons for more consistent display */
+
+/* Data retrieval tools */
+.tool-fetch-icon::before {
+    content: "📥";
+}
+
+.tool-read-icon::before {
+    content: "📄";
+}
+
+.tool-web-search-icon::before {
+    content: "🔎";
+}
+
+.tool-grep-icon::before {
+    content: "🔍";
+}
+
+.tool-find-path-icon::before {
+    content: "🗂️";
+}
+
+.tool-list-directory-icon::before {
+    content: "📁";
+}
+
+/* File manipulation tools */
+.tool-edit-file-icon::before {
+    content: "✏️";
+}
+
+.tool-write-icon::before {
+    content: "📝";
+}
+
+.tool-create-icon::before {
+    content: "✨";
+}
+
+.tool-create-directory-icon::before {
+    content: "📂";
+}
+
+.tool-delete-path-icon::before {
+    content: "🗑️";
+}
+
+.tool-copy-path-icon::before {
+    content: "📋";
+}
+
+.tool-move-path-icon::before {
+    content: "📦";
+}
+
+/* Execution tools */
+.tool-terminal-icon::before {
+    content: "💻";
+}
+
+.tool-exec-icon::before {
+    content: "▶️";
+}
+
+/* Analysis tools */
+.tool-diagnostics-icon::before {
+    content: "🔧";
+}
+
+.tool-thinking-icon::before {
+    content: "🤔";
+}
+
+/* Other tools */
+.tool-now-icon::before {
+    content: "🕒";
+}
+
+.tool-default-icon::before {
+    content: "🛠️";
+}
+
+/* Icon variations for status */
+.tool-status.starting .tool-default-icon::before {
+    content: "🚀";
+}
+
+.tool-status.working .tool-default-icon::before {
+    content: "⚙️";
+}
+
+.tool-status.completed .tool-default-icon::before {
+    content: "✅";
+}
+
+.tool-status.partial .tool-default-icon::before {
+    content: "⚠️";
+}
+
+.tool-status.failed .tool-default-icon::before {
+    content: "❌";
+}
+
+/* Font Awesome icon support - uncomment if using Font Awesome */
+/*
+.tool-fetch-icon::before {
+    font-family: "Font Awesome 5 Free";
+    content: "\f019";
+}
+
+.tool-read-icon::before {
+    font-family: "Font Awesome 5 Free";
+    content: "\f15c";
+}
+
+.tool-write-icon::before {
+    font-family: "Font Awesome 5 Free";
+    content: "\f304";
+}
+
+.tool-terminal-icon::before {
+    font-family: "Font Awesome 5 Free";
+    content: "\f120";
+}
+
+.tool-search-icon::before {
+    font-family: "Font Awesome 5 Free";
+    content: "\f002";
+}
+
+.tool-diagnostics-icon::before {
+    font-family: "Font Awesome 5 Free";
+    content: "\f7d9";
+}
+
+.tool-default-icon::before {
+    font-family: "Font Awesome 5 Free";
+    content: "\f7d9";
+}
+*/

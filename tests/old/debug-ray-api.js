@@ -32,7 +32,7 @@ const debugServer = http.createServer((req, res) => {
           data.command_results.forEach((result, index) => {
             console.log(
               `Result ${index + 1}:`,
-              JSON.stringify(result, null, 2)
+              JSON.stringify(result, null, 2),
             );
           });
         } else {

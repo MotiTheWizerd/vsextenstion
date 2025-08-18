@@ -3,39 +3,81 @@ class MessageHandler {
     this.chatUI = chatUI;
   }
 
+  // Helper method to log all tool status elements in the DOM
+  logToolStatusElements() {
+    const elements =
+      this.chatUI.chatMessages.querySelectorAll("[data-tool-id]");
+    console.log(`Found ${elements.length} tool status elements in DOM:`);
+    elements.forEach((el, i) => {
+      console.log(
+        `  [${i}] ${el.getAttribute("data-tool-id")} - ${el.className} - ${el.textContent.substring(0, 50)}...`,
+      );
+    });
+  }
+
   handleToolStatus(data) {
-    console.log("[RayDaemon] handleToolStatus called with:", data);
-    
+    const timestamp = new Date().toISOString();
+    console.group(`[${timestamp}] [Webview] handleToolStatus`);
+    console.log("Status:", data.status);
+    console.log("Tools:", data.tools);
+    console.log("Current Index:", data.currentIndex);
+    console.log("Total Count:", data.totalCount);
+    console.log("Batch Mode:", data.batchMode);
+    console.log("Success Count:", data.successCount);
+    console.log("Failed Count:", data.failedCount);
+
+    // Log current DOM state
+    console.log("=== DOM State Before Update ===");
+    this.logToolStatusElements();
+
     const {
       status,
-      tools,
-      successCount,
-      failedCount,
-      totalCount,
-      error,
-      results,
-      currentIndex,
-      batchMode,
+      tools = [],
+      currentIndex = 0,
+      totalCount = 1,
+      successCount = 0,
+      failedCount = 0,
+      results = [],
+      error = null,
+      batchMode = false,
     } = data;
 
-    console.log("[RayDaemon] Tool status:", status, "batchMode:", batchMode, "tools:", tools);
+    console.group(`[Webview] handleToolStatus - Status: ${status}`);
+    console.log("Tools:", tools);
+    console.log("Current Index:", currentIndex);
+    console.log("Total Count:", totalCount);
+    console.log("Success Count:", successCount);
+    console.log("Failed Count:", failedCount);
+    console.log("Batch Mode:", batchMode);
+    if (error) {
+      console.error("Error:", error);
+    }
+
+    // Status logging moved to the beginning of the function
 
     let content = "";
     let className = "tool-status";
 
     if (status === "starting") {
-      console.log("[RayDaemon] Processing starting status, batchMode:", batchMode);
+      console.group("[Webview] Processing STARTING status");
+      console.log("Batch Mode:", batchMode);
+      console.log("Tools to execute:", tools);
+      console.log("Current tool status elements in DOM:");
+      this.logToolStatusElements();
       if (batchMode) {
         // Show batch starting indicator
         const taskDescription = this.getBatchDescription(tools, totalCount);
-        console.log("[RayDaemon] Creating batch starting message with taskDescription:", taskDescription);
+        console.log(
+          "[RayDaemon] Creating batch starting message with taskDescription:",
+          taskDescription,
+        );
         // Get appropriate icon for starting state based on tools
         const startingCategories = this.categorizeCommands(tools, []);
         const primaryStartingCategory = Object.entries(startingCategories)
           .filter(([key, value]) => value.count > 0)
           .sort(([, a], [, b]) => b.count - a.count)[0];
-        
-        const startingIcon = primaryStartingCategory 
+
+        const startingIcon = primaryStartingCategory
           ? this.getStartingIcon(primaryStartingCategory[0])
           : "🚀";
 
@@ -53,7 +95,7 @@ class MessageHandler {
 
         // Remove any existing batch starting indicator
         const existingStarting = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-starting"]'
+          '[data-tool-id="batch-starting"]',
         );
         if (existingStarting) {
           existingStarting.remove();
@@ -67,11 +109,13 @@ class MessageHandler {
 
         // Get appropriate icon for starting state based on tools
         const individualStartingCategories = this.categorizeCommands(tools, []);
-        const primaryIndividualStartingCategory = Object.entries(individualStartingCategories)
+        const primaryIndividualStartingCategory = Object.entries(
+          individualStartingCategories,
+        )
           .filter(([key, value]) => value.count > 0)
           .sort(([, a], [, b]) => b.count - a.count)[0];
-        
-        const individualStartingIcon = primaryIndividualStartingCategory 
+
+        const individualStartingIcon = primaryIndividualStartingCategory
           ? this.getStartingIcon(primaryIndividualStartingCategory[0])
           : "🚀";
 
@@ -90,13 +134,24 @@ class MessageHandler {
         </div>`;
 
         const existingStarting = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`
+          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
         );
         if (existingStarting) {
           existingStarting.remove();
         }
       }
+      console.log(
+        "[Webview] Starting content created:",
+        content ? "Yes" : "No",
+      );
+      console.groupEnd();
     } else if (status === "working") {
+      console.group("[Webview] Processing WORKING status");
+      console.log("Current Tool:", tools && tools[0]);
+      console.log(`Progress: ${currentIndex || 1}/${totalCount || 1}`);
+      console.log("Batch Mode:", batchMode);
+      console.log("Current tool status elements in DOM before update:");
+      this.logToolStatusElements();
       if (batchMode) {
         // Show batch working indicator with current progress
         const taskDescription = this.getBatchDescription(tools, totalCount);
@@ -119,7 +174,7 @@ class MessageHandler {
 
         // Remove the batch starting indicator
         const existingStarting = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-starting"]'
+          '[data-tool-id="batch-starting"]',
         );
         if (existingStarting) {
           existingStarting.remove();
@@ -127,7 +182,7 @@ class MessageHandler {
 
         // Update existing working indicator or create new one
         const existingWorking = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-working"]'
+          '[data-tool-id="batch-working"]',
         );
         if (existingWorking) {
           // Update the text content of the existing working indicator
@@ -161,34 +216,52 @@ class MessageHandler {
         </div>`;
 
         const existingStarting = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`
+          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
         );
         if (existingStarting) {
           existingStarting.remove();
         }
 
         const existingWorking = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-working-${currentIndex || "batch"}"]`
+          `[data-tool-id="current-working-${currentIndex || "batch"}"]`,
         );
         if (existingWorking) {
           existingWorking.remove();
         }
       }
+      console.groupEnd();
     } else if (status === "completed") {
+      console.group("[Webview] Processing COMPLETED status");
+      console.log("Success Count:", successCount);
+      console.log("Failed Count:", failedCount);
+      console.log("Total Tools:", totalCount);
+      console.log("Results Available:", !!results);
+      console.log("Batch Mode:", batchMode);
+      console.log("Current tool status elements in DOM before update:");
+      this.logToolStatusElements();
+
       if (batchMode) {
-        // Remove batch indicators
+        // Log DOM state before removal
+        console.log("DOM: Looking for batch indicators to remove...");
         const startingIndicator = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-starting"]'
+          '[data-tool-id="batch-starting"]',
+        );
+        console.log(
+          "DOM: Found batch-starting indicator?",
+          !!startingIndicator,
         );
         if (startingIndicator) {
           startingIndicator.remove();
+          console.log("DOM: Removed batch-starting indicator");
         }
 
         const workingIndicator = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-working"]'
+          '[data-tool-id="batch-working"]',
         );
+        console.log("DOM: Found batch-working indicator?", !!workingIndicator);
         if (workingIndicator) {
           workingIndicator.remove();
+          console.log("DOM: Removed batch-working indicator");
         }
 
         // Check if results contain file paths
@@ -203,7 +276,7 @@ class MessageHandler {
         const shouldHaveFiles = this.shouldHaveFileResults(tools, results);
         console.log(
           "[RayDaemon] shouldHaveFiles based on commands:",
-          shouldHaveFiles
+          shouldHaveFiles,
         );
 
         const finalHasFileResults = hasFileResults || shouldHaveFiles;
@@ -218,20 +291,22 @@ class MessageHandler {
         const fileCount = finalHasFileResults
           ? Math.max(extractedFiles.length, 1)
           : 0;
-        
+
         // Only show file count if we actually have files, otherwise show operation count
-        const shouldShowFileCount = finalHasFileResults && extractedFiles.length > 0;
+        const shouldShowFileCount =
+          finalHasFileResults && extractedFiles.length > 0;
         const displayCount = shouldShowFileCount ? fileCount : totalCount;
         const displayLabel = shouldShowFileCount
           ? fileCount === 1
             ? "file"
             : "files"
           : totalCount === 1
-          ? "result"
-          : "results";
-        
+            ? "result"
+            : "results";
+
         // Only make expandable if we have actual files to show
-        const shouldBeExpandable = finalHasFileResults && dropdownHtml && extractedFiles.length > 0;
+        const shouldBeExpandable =
+          finalHasFileResults && dropdownHtml && extractedFiles.length > 0;
 
         console.log(
           "[RayDaemon] Batch completion - finalHasFileResults:",
@@ -239,19 +314,19 @@ class MessageHandler {
           "fileCount:",
           fileCount,
           "displayCount:",
-          displayCount
+          displayCount,
         );
 
         // Create batch completion message with detailed results
         const taskDescription = this.getDetailedCompletionMessage(
           tools,
           results,
-          totalCount
+          totalCount,
         );
 
         // Get appropriate icon for this command type
         const primaryCategory = Object.entries(
-          this.categorizeCommands(tools, results)
+          this.categorizeCommands(tools, results),
         )
           .filter(([key, value]) => value.count > 0)
           .sort(([, a], [, b]) => b.count - a.count)[0];
@@ -266,8 +341,8 @@ class MessageHandler {
               <div class="tool-icon">⚠️</div>
               <div class="tool-content">
                 <div class="tool-text">${taskDescription} (${failedCount} error${
-            failedCount > 1 ? "s" : ""
-          })</div>
+                  failedCount > 1 ? "s" : ""
+                })</div>
               </div>
               <div class="tool-meta">
                 <div class="tool-badge">Partial</div>
@@ -298,14 +373,14 @@ class MessageHandler {
       } else {
         // Individual command completion (legacy support)
         const startingIndicator = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`
+          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
         );
         if (startingIndicator) {
           startingIndicator.remove();
         }
 
         const workingIndicator = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-working-${currentIndex || "batch"}"]`
+          `[data-tool-id="current-working-${currentIndex || "batch"}"]`,
         );
         if (workingIndicator) {
           workingIndicator.remove();
@@ -317,9 +392,11 @@ class MessageHandler {
           : "";
 
         // Get the actual count of files for display
-        const extractedFiles = hasFileResults ? this.chatUI.fileUtils.extractFileList(results) : [];
+        const extractedFiles = hasFileResults
+          ? this.chatUI.fileUtils.extractFileList(results)
+          : [];
         const fileCount = extractedFiles.length;
-        
+
         // Only show file count if we actually have files, otherwise show operation count
         const shouldShowFileCount = hasFileResults && fileCount > 0;
         const displayCount = shouldShowFileCount ? fileCount : 1;
@@ -328,9 +405,10 @@ class MessageHandler {
             ? "file"
             : "files"
           : "result";
-        
+
         // Only make expandable if we have actual files to show
-        const shouldBeExpandable = hasFileResults && dropdownHtml && fileCount > 0;
+        const shouldBeExpandable =
+          hasFileResults && dropdownHtml && fileCount > 0;
 
         console.log(
           "[RayDaemon] Individual completion - hasFileResults:",
@@ -338,7 +416,7 @@ class MessageHandler {
           "fileCount:",
           fileCount,
           "displayCount:",
-          displayCount
+          displayCount,
         );
 
         let completionText = this.getCompletionText(tools, 1);
@@ -347,7 +425,7 @@ class MessageHandler {
 
         // Get appropriate icon for this individual command
         const individualCategory = Object.entries(
-          this.categorizeCommands(tools, results)
+          this.categorizeCommands(tools, results),
         )
           .filter(([key, value]) => value.count > 0)
           .sort(([, a], [, b]) => b.count - a.count)[0];
@@ -370,8 +448,8 @@ class MessageHandler {
                 <div class="tool-count ${
                   hasFileResults && dropdownHtml ? "expandable" : ""
                 }" data-expandable="${!!(
-            hasFileResults && dropdownHtml
-          )}">Error</div>
+                  hasFileResults && dropdownHtml
+                )}">Error</div>
               </div>
             </div>
             ${dropdownHtml}
@@ -390,25 +468,35 @@ class MessageHandler {
                 <div class="tool-count ${
                   hasFileResults && dropdownHtml ? "expandable" : ""
                 }" data-expandable="${!!(
-            hasFileResults && dropdownHtml
-          )}">${displayCount} ${displayLabel}</div>
+                  hasFileResults && dropdownHtml
+                )}">${displayCount} ${displayLabel}</div>
               </div>
             </div>
             ${dropdownHtml}
           </div>`;
         }
       }
-    } else if (status === "failed") {
+    } else if (status === "error") {
+      console.group("[Webview] Processing ERROR status");
+      console.error("Error Details:", error);
+      console.log("Failed Tool:", tools && tools[0]);
+      console.log("Current tool status elements in DOM before update:");
+      this.logToolStatusElements();
+      console.log("Batch Mode:", batchMode);
+      console.log("Current Index:", currentIndex);
+      console.log("Total Count:", totalCount);
+      console.groupEnd();
+
       // Remove both starting and working indicators for this command
       const startingIndicator = this.chatUI.chatMessages.querySelector(
-        `[data-tool-id="current-starting-${currentIndex || "batch"}"]`
+        `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
       );
       if (startingIndicator) {
         startingIndicator.remove();
       }
 
       const workingIndicator = this.chatUI.chatMessages.querySelector(
-        `[data-tool-id="current-working-${currentIndex || "batch"}"]`
+        `[data-tool-id="current-working-${currentIndex || "batch"}"]`,
       );
       if (workingIndicator) {
         workingIndicator.remove();
@@ -434,22 +522,68 @@ class MessageHandler {
     }
 
     if (content) {
+      console.group("=== Tool Status Update ===");
+      console.log("Status:", status);
+      console.log("Tools:", tools);
+      console.log("Content length:", content.length);
+
       const messageDiv = document.createElement("div");
-      messageDiv.className = "message system tool-message";
+      messageDiv.className = `tool-status ${status}`;
+      messageDiv.setAttribute("data-status", status);
+      if (tools && tools.length > 0) {
+        messageDiv.setAttribute("data-tool", tools[0]);
+      }
+
+      // Log before DOM manipulation
+      console.log(
+        "Before DOM update - Existing elements with same tool:",
+        this.chatUI.chatMessages.querySelectorAll(
+          `[data-tool="${tools && tools[0]}"]`,
+        ).length,
+      );
+
+      const existingStatus = this.chatUI.chatMessages.querySelector(
+        `[data-status][data-tool="${tools && tools[0]}"]`,
+      );
+
+      if (existingStatus) {
+        console.log("Replacing existing status message");
+        existingStatus.replaceWith(messageDiv);
+      } else {
+        console.log("Appending new status message");
+        this.chatUI.chatMessages.appendChild(messageDiv);
+      }
+
+      // Set content after DOM insertion
       messageDiv.innerHTML = content;
 
-      this.chatUI.chatMessages.appendChild(messageDiv);
+      // Log after DOM manipulation
+      console.log(
+        "After DOM update - Element in document?",
+        document.body.contains(messageDiv),
+      );
+      console.log("Element parent:", messageDiv.parentElement);
+      console.log("Element visibility:", {
+        display: window.getComputedStyle(messageDiv).display,
+        visibility: window.getComputedStyle(messageDiv).visibility,
+        opacity: window.getComputedStyle(messageDiv).opacity,
+      });
+
+      console.groupEnd(); // End of logging group
+
+      // Force a reflow to ensure the browser processes the DOM changes
+      void messageDiv.offsetHeight;
 
       // Only add click handler for completed status with valid dropdowns
       if (status === "completed") {
         const expandableCount = messageDiv.querySelector(
-          ".tool-count.expandable"
+          ".tool-count.expandable",
         );
         const dropdown = messageDiv.querySelector(".tool-dropdown");
 
         console.log(
           "[RayDaemon] Looking for expandable count:",
-          expandableCount
+          expandableCount,
         );
         console.log("[RayDaemon] Found dropdown:", !!dropdown);
 
@@ -460,7 +594,7 @@ class MessageHandler {
           expandableCount.addEventListener("click", (e) => {
             console.log(
               "[RayDaemon] Tool count clicked!",
-              expandableCount.textContent
+              expandableCount.textContent,
             );
             e.preventDefault();
             e.stopPropagation();
@@ -470,14 +604,14 @@ class MessageHandler {
           // Add visual cursor pointer and clear title for clickable elements
           expandableCount.style.cursor = "pointer";
           expandableCount.title = "Click to view details";
-          expandableCount.setAttribute('role', 'button');
-          expandableCount.setAttribute('aria-expanded', 'false');
+          expandableCount.setAttribute("role", "button");
+          expandableCount.setAttribute("aria-expanded", "false");
           console.log(
-            "[RayDaemon] Made tool count clickable with pointer cursor"
+            "[RayDaemon] Made tool count clickable with pointer cursor",
           );
         } else {
           console.log(
-            "[RayDaemon] No valid expandable count or dropdown found"
+            "[RayDaemon] No valid expandable count or dropdown found",
           );
 
           // Remove expandable class and interactive properties if no dropdown content
@@ -486,15 +620,15 @@ class MessageHandler {
             anyToolCount.classList.remove("expandable");
             anyToolCount.removeAttribute("data-expandable");
             anyToolCount.style.cursor = "default";
-            anyToolCount.removeAttribute('role');
-            anyToolCount.removeAttribute('aria-expanded');
-            anyToolCount.removeAttribute('title');
+            anyToolCount.removeAttribute("role");
+            anyToolCount.removeAttribute("aria-expanded");
+            anyToolCount.removeAttribute("title");
           }
         }
 
         // Add click handlers for file items
         const fileItems = messageDiv.querySelectorAll(".tool-file-item");
-        fileItems.forEach(fileItem => {
+        fileItems.forEach((fileItem) => {
           fileItem.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -504,18 +638,18 @@ class MessageHandler {
               // Send message to extension to open the file
               this.chatUI.postMessage({
                 command: "openFile",
-                filePath: filePath
+                filePath: filePath,
               });
             }
           });
-          
+
           // Add hover effect
           fileItem.style.cursor = "pointer";
         });
 
         // Add click handlers for diff icons
         const diffIcons = messageDiv.querySelectorAll(".tool-file-diff");
-        diffIcons.forEach(diffIcon => {
+        diffIcons.forEach((diffIcon) => {
           diffIcon.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -525,11 +659,11 @@ class MessageHandler {
               // Send message to extension to show the diff
               this.chatUI.postMessage({
                 command: "showDiff",
-                filePath: filePath
+                filePath: filePath,
               });
             }
           });
-          
+
           // Add hover effect
           diffIcon.style.cursor = "pointer";
           diffIcon.title = "Click to view changes";
@@ -555,7 +689,7 @@ class MessageHandler {
     return this.generateCategoryMessage(
       commandCategories,
       successfulResults,
-      totalCount
+      totalCount,
     );
   }
 
@@ -676,14 +810,14 @@ class MessageHandler {
 
     console.log(
       `[RayDaemon] Generating message for category: ${categoryName}`,
-      categoryData
+      categoryData,
     );
 
     // Try to generate a specific message based on actual tool names first
     const specificMessage = this.generateSpecificMessage(
       categoryData,
       hasMultipleCategories,
-      totalCount
+      totalCount,
     );
     if (specificMessage) {
       return specificMessage;
@@ -695,37 +829,37 @@ class MessageHandler {
         return this.generateDiagnosticMessage(
           categoryData,
           hasMultipleCategories,
-          totalCount
+          totalCount,
         );
       case "fileModification":
         return this.generateFileModificationMessage(
           categoryData,
           hasMultipleCategories,
-          totalCount
+          totalCount,
         );
       case "fileReading":
         return this.generateFileReadingMessage(
           categoryData,
           hasMultipleCategories,
-          totalCount
+          totalCount,
         );
       case "search":
         return this.generateSearchMessage(
           categoryData,
           hasMultipleCategories,
-          totalCount
+          totalCount,
         );
       case "listing":
         return this.generateListingMessage(
           categoryData,
           hasMultipleCategories,
-          totalCount
+          totalCount,
         );
       case "indexing":
         return this.generateIndexingMessage(
           categoryData,
           hasMultipleCategories,
-          totalCount
+          totalCount,
         );
       default:
         return this.generateMixedMessage(categories, totalCount);
@@ -928,7 +1062,7 @@ class MessageHandler {
 
     // Check if any tool suggests file operations
     const hasFileCommand = toolsLower.some((tool) =>
-      fileCommands.some((cmd) => tool.includes(cmd))
+      fileCommands.some((cmd) => tool.includes(cmd)),
     );
 
     if (hasFileCommand) {
@@ -940,7 +1074,9 @@ class MessageHandler {
     const hasFileInResults =
       results &&
       results.some((result) => {
-        if (!result || !result.ok) {return false;}
+        if (!result || !result.ok) {
+          return false;
+        }
 
         // Check command arguments
         if (result.args && result.args.length > 0) {
@@ -1020,7 +1156,7 @@ class MessageHandler {
 
   generateFileModificationMessage(categoryData, hasMultiple, totalCount) {
     const fileCount = categoryData.count;
-    
+
     // Extract file names from the results
     const modifiedFiles = [];
     categoryData.results.forEach((result) => {
@@ -1091,6 +1227,43 @@ class MessageHandler {
     }
   }
 
+  logToolStatusElements() {
+    console.group("[Webview] Tool Status Elements in DOM");
+
+    // Log all tool status containers
+    const toolStatusContainers = document.querySelectorAll(
+      ".tool-status-container",
+    );
+    console.log(`Found ${toolStatusContainers.length} tool status containers`);
+
+    toolStatusContainers.forEach((container, index) => {
+      console.group(`Container #${index + 1}`);
+      console.log("ID:", container.id);
+      console.log("Status:", container.getAttribute("data-status") || "none");
+      console.log("Tool:", container.getAttribute("data-tool") || "none");
+      console.log("HTML:", container.outerHTML);
+      console.groupEnd();
+    });
+
+    // Log all tool status messages
+    const toolMessages = document.querySelectorAll(".tool-message");
+    console.log(`Found ${toolMessages.length} tool messages`);
+
+    toolMessages.forEach((msg, index) => {
+      console.group(`Message #${index + 1}`);
+      console.log("Class:", msg.className);
+      console.log("Data Status:", msg.getAttribute("data-status") || "none");
+      console.log(
+        "Inner Text:",
+        msg.innerText.substring(0, 100) +
+          (msg.innerText.length > 100 ? "..." : ""),
+      );
+      console.groupEnd();
+    });
+
+    console.groupEnd();
+  }
+
   generateSearchMessage(categoryData, hasMultiple, totalCount) {
     let totalMatches = 0;
     let totalFiles = 0;
@@ -1105,7 +1278,7 @@ class MessageHandler {
         const lines = result.output.split("\n").filter((line) => line.trim());
         const matches = lines.filter(
           (line) =>
-            line.includes(":") && (line.includes("/") || line.includes("\\"))
+            line.includes(":") && (line.includes("/") || line.includes("\\")),
         );
         totalMatches += matches.length;
 
@@ -1143,19 +1316,24 @@ class MessageHandler {
 
   generateListingMessage(categoryData, hasMultiple, totalCount) {
     const dirCount = categoryData.count;
-    
+
     // Try to get the directory name from the first result
     let dirName = "";
     if (categoryData.results && categoryData.results.length > 0) {
       const firstResult = categoryData.results[0];
       if (firstResult && firstResult.args && firstResult.args.length > 0) {
         const dirPath = firstResult.args[0] || ".";
-        dirName = dirPath === "." ? "current directory" : dirPath.split(/[/\\]/).pop() || dirPath;
+        dirName =
+          dirPath === "."
+            ? "current directory"
+            : dirPath.split(/[/\\]/).pop() || dirPath;
       }
     }
 
-    const baseMessage = dirName ? `Listed ${dirName}` : `Listed ${dirCount} director${dirCount > 1 ? "ies" : "y"}`;
-    
+    const baseMessage = dirName
+      ? `Listed ${dirName}`
+      : `Listed ${dirCount} director${dirCount > 1 ? "ies" : "y"}`;
+
     if (hasMultiple) {
       return `${baseMessage} + ${totalCount - dirCount} other operation${totalCount - dirCount > 1 ? "s" : ""}`;
     } else {
@@ -1322,9 +1500,25 @@ class MessageHandler {
   }
 
   handleIncomingMessage(message) {
-    console.log("Received message:", message);
-    console.log("Message type:", message.type);
-    console.log("Message data:", message.data);
+    console.groupCollapsed(`[Webview] Received message: ${message?.type}`);
+    console.log("Full message:", message);
+
+    if (!message || !message.type) {
+      console.warn("[Webview] Received message with no type:", message);
+      console.groupEnd();
+      return;
+    }
+
+    console.group(`[Webview] Message Details`);
+    console.log("Full message:", JSON.parse(JSON.stringify(message)));
+    console.groupEnd();
+
+    // Log memory usage for debugging
+    if (window.performance && window.performance.memory) {
+      console.log(
+        `[Webview] Memory: ${(window.performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB used`,
+      );
+    }
 
     // Clear typing indicator and timeout for any incoming response
     if (this.chatUI.typingTimeout) {
@@ -1354,20 +1548,20 @@ class MessageHandler {
       console.log("rayResponse - isWorking:", isWorking);
       console.log("rayResponse - isFinal:", isFinal);
       console.log("rayResponse - isCommandResult:", isCommandResult);
-      
+
       if (content) {
         // Skip old command result messages only if they're not final responses
         if (isCommandResult && !isFinal) {
           console.log("Skipping command result message (not final)");
           return;
         }
-        
+
         console.log("Adding rayResponse message to chat");
-        
+
         // If this is a final response and we have a working message, replace it
         if (isFinal !== false && !isWorking) {
           const workingMessage = this.chatUI.chatMessages.querySelector(
-            '[data-working="true"]'
+            '[data-working="true"]',
           );
           if (workingMessage) {
             workingMessage.remove();
@@ -1387,28 +1581,39 @@ class MessageHandler {
 
     // Handle command-based messages
     if (message.command) {
-      switch (message.command) {
-        case "addMessage":
-          this.chatUI.addMessage(message.sender, message.content, {
-            ...message.options,
-            showAvatar: true,
-          });
-          break;
-        case "showTyping":
-          this.chatUI.showTypingIndicator(message.typing);
-          break;
-        case "clearChat":
-          this.chatUI.clearChat();
-          break;
-        case "setStatus":
-          this.chatUI.setStatus(message.status);
-          break;
-        case "chatError":
-          this.chatUI.addMessage("assistant", `Error: ${message.error}`, {
-            isMarkdown: false,
-            showAvatar: true,
-          });
-          break;
+      try {
+        console.log(`[Webview] Processing command: ${message.command}`);
+
+        switch (message.command) {
+          case "addMessage":
+            this.chatUI.addMessage(message.sender, message.content, {
+              ...message.options,
+              showAvatar: true,
+            });
+            break;
+          case "showTyping":
+            this.chatUI.showTypingIndicator(message.typing);
+            break;
+          case "clearChat":
+            this.chatUI.clearChat();
+            break;
+          case "setStatus":
+            this.chatUI.setStatus(message.status);
+            break;
+          case "chatError":
+            this.chatUI.addMessage("assistant", `Error: ${message.error}`, {
+              isMarkdown: false,
+              showAvatar: true,
+            });
+            break;
+          default:
+            console.warn("[Webview] Unknown command:", message.command);
+        }
+      } catch (error) {
+        console.error("[Webview] Error processing command:", error);
+        console.error("Command that caused error:", message);
+      } finally {
+        console.groupEnd();
       }
     }
   }

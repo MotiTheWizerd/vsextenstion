@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            line-height: 1.4;
+            animation: slideIn 0.3s ease-out;
+            word-wrap: break-word;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e9ecef;
+        }
+
+        /* Code formatting styles */
+        .code-block {
+            background: #2d3748;
+            border: 1px solid #4a5568;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #e2e8f0;
+        }
+
+        .json-key {
+            color: #81e6d9;
+            font-weight: 600;
+        }
+
+        .json-string {
+            color: #f6ad55;
+        }
+
+        .json-number {
+            color: #68d391;
+        }
+
+        .json-boolean {
+            color: #9f7aea;
+            font-weight: 600;
+        }
+
+        .json-null {
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        .json-punctuation {
+            color: #cbd5e0;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 6px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .copy-button:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+
+        .code-container {
+            position: relative;
+        }
+
+        .message.system {
+            align-self: center;
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            font-size: 0.9em;
+            max-width: 90%;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .file-upload-area {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+            text-align: center;
+            transition: all 0.2s ease;
+            display: none;
+        }
+
+        .file-upload-area.active {
+            display: block;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-button {
+            padding: 8px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 10px;
+        }
+
+        .file-button:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+
+        .selected-files {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .file-tag {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .file-tag .remove {
+            cursor: pointer;
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .file-tag .remove:hover {
+            color: #b02a37;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 20px;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 48px;
+            max-height: 120px;
+            font-family: inherit;
+            transition: border-color 0.2s ease;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            min-width: 80px;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:active {
+            transform: translateY(0);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: flex;
+            gap: 4px;
+            padding: 12px 18px;
+        }
+
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: loading 1.4s infinite ease-in-out;
+        }
+
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.16s;
+        }
+
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.32s;
+        }
+
+        @keyframes loading {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .clear-button {
+            padding: 8px 16px;
+            background: transparent;
+            color: #6c757d;
+            border: 1px solid #dee2e6;
+            border-radius: 15px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clear-button:hover {
+            background: #f8f9fa;
+            color: #495057;
+        }
+
+        /* Scrollbar styling */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #dee2e6;
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #adb5bd;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 100vh;
+                border-radius: 0;
+                max-width: 100%;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .chat-input-wrapper {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .send-button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            🤖 AI Chat Assistant
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message system">
+                🔄 Loading AI Assistant...
+            </div>
+        </div>
+        
+        <div class="chat-input-container">
+            <!-- File upload area -->
+            <div class="file-upload-area" id="fileUploadArea">
+                <p>📎 Drop files here or click to browse</p>
+                <div class="selected-files" id="selectedFiles"></div>
+            </div>
+            
+            <div class="chat-input-wrapper">
+                <input type="file" id="fileInput" class="file-input" multiple accept=".txt,.pdf,.docx,.json,.csv,.md,image/*">
+                <button id="fileButton" class="file-button">📎 Files</button>
+                <textarea 
+                    id="chatInput" 
+                    class="chat-input" 
+                    placeholder="Type your message here..." 
+                    rows="1"
+                ></textarea>
+                <button id="sendButton" class="send-button">Send</button>
+            </div>
+            <button id="clearButton" class="clear-button" style="margin-top: 10px;">Clear Chat</button>
+        </div>
+    </div>
+
+    <script src="https://js.puter.com/v2/"></script>
+    <script>
+        const system = `You are my co-coding partner and debugging assistant. Your job is to help me understand, fix, and improve code. 
+        When I share code or describe issues:
+        - Analyze the problem thoroughly
+        - Provide clear explanations of what's wrong
+        - Suggest specific fixes with code examples
+        - Offer improvements and best practices
+        - Help debug step by step
+        
+        Please be practical, concise, and provide working solutions. If you suggest code changes, format them clearly. 
+        Let's work together to solve coding challenges! User: `;
+
+        let chatMessages, chatInput, sendButton, clearButton, fileButton, fileInput, fileUploadArea, selectedFiles;
+        let isProcessing = false;
+        let puterReady = false;
+        let selectedFilesArray = [];
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChat();
+        });
+
+        async function initializeChat() {
+            // Get DOM elements
+            chatMessages = document.getElementById('chatMessages');
+            chatInput = document.getElementById('chatInput');
+            sendButton = document.getElementById('sendButton');
+            clearButton = document.getElementById('clearButton');
+            fileButton = document.getElementById('fileButton');
+            fileInput = document.getElementById('fileInput');
+            fileUploadArea = document.getElementById('fileUploadArea');
+            selectedFiles = document.getElementById('selectedFiles');
+
+            // Wait for Puter to be available
+            await waitForPuter();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Focus input
+            chatInput.focus();
+        }
+
+        async function waitForPuter() {
+            let attempts = 0;
+            const maxAttempts = 50;
+            
+            while (attempts < maxAttempts) {
+                if (typeof puter !== 'undefined') {
+                    puterReady = true;
+                    addMessage('✅ AI Assistant ready! Send me a message to get started.', 'system');
+                    return;
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            addMessage('❌ Error: Could not connect to AI service. Please refresh the page and try again.', 'system');
+        }
+
+        function setupEventListeners() {
+            // Auto-resize textarea
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+
+            // Send message on Enter (but allow Shift+Enter for new lines)
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Handle paste events for images
+            chatInput.addEventListener('paste', handlePaste);
+            document.addEventListener('paste', handlePaste);
+
+            sendButton.addEventListener('click', sendMessage);
+            clearButton.addEventListener('click', clearChat);
+
+            // File upload events
+            fileButton.addEventListener('click', function() {
+                fileUploadArea.classList.toggle('active');
+                if (fileUploadArea.classList.contains('active')) {
+                    fileInput.click();
+                }
+            });
+
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Drag and drop events
+            fileUploadArea.addEventListener('click', () => fileInput.click());
+            fileUploadArea.addEventListener('dragover', handleDragOver);
+            fileUploadArea.addEventListener('dragleave', handleDragLeave);
+            fileUploadArea.addEventListener('drop', handleFileDrop);
+        }
+
+        // Paste handler for images
+        function handlePaste(event) {
+            const items = event.clipboardData.items;
+            
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    event.preventDefault();
+                    const file = item.getAsFile();
+                    
+                    if (file) {
+                        // Add image to selected files
+                        if (!selectedFilesArray.some(f => f.name === file.name && f.size === file.size)) {
+                            selectedFilesArray.push(file);
+                        }
+                        updateFileDisplay();
+                        fileUploadArea.classList.add('active');
+                        
+                        // Show notification
+                        addMessage('📷 Image pasted and ready to send!', 'system');
+                    }
+                    break;
+                }
+            }
+        }
+
+        // File handling functions
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                for (let file of files) {
+                    if (!selectedFilesArray.some(f => f.name === file.name && f.size === file.size)) {
+                        selectedFilesArray.push(file);
+                    }
+                }
+                updateFileDisplay();
+                fileUploadArea.classList.add('active');
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+        }
+
+        function handleFileDrop(event) {
+            event.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                for (let file of files) {
+                    if (!selectedFilesArray.some(f => f.name === file.name && f.size === file.size)) {
+                        selectedFilesArray.push(file);
+                    }
+                }
+                updateFileDisplay();
+                fileUploadArea.classList.add('active');
+            }
+        }
+
+        function updateFileDisplay() {
+            selectedFiles.innerHTML = '';
+            
+            if (selectedFilesArray.length === 0) {
+                selectedFiles.innerHTML = '<p style="color: #6c757d; font-size: 12px;">No files selected</p>';
+                return;
+            }
+
+            selectedFilesArray.forEach((file, index) => {
+                const fileTag = document.createElement('div');
+                fileTag.className = 'file-tag';
+                
+                // Add icon based on file type
+                let icon = '📄';
+                if (file.type.startsWith('image/')) {
+                    icon = '🖼️';
+                } else if (file.type === 'application/pdf') {
+                    icon = '📋';
+                } else if (file.type.includes('json')) {
+                    icon = '📊';
+                }
+                
+                fileTag.innerHTML = `
+                    <span>${icon} ${file.name}</span>
+                    <span class="remove" onclick="removeFile(${index})">&times;</span>
+                `;
+                selectedFiles.appendChild(fileTag);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFilesArray.splice(index, 1);
+            updateFileDisplay();
+            
+            if (selectedFilesArray.length === 0) {
+                fileUploadArea.classList.remove('active');
+            }
+        }
+
+        async function readFileContent(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                if (file.type.startsWith('image/')) {
+                    // For images, read as base64 data URL
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                } else {
+                    // For text files, read as text
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = reject;
+                    reader.readAsText(file);
+                }
+            });
+        }
+
+        function addMessage(content, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            if (type === 'assistant') {
+                // Try to format JSON if the response contains it
+                const formattedContent = formatResponseContent(content);
+                messageDiv.innerHTML = formattedContent;
+            } else {
+                messageDiv.textContent = content;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function formatResponseContent(content) {
+            // First, handle markdown code blocks
+            content = content.replace(/```json\s*([\s\S]*?)\s*```/g, function(match, jsonContent) {
+                try {
+                    const parsed = JSON.parse(jsonContent.trim());
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    const highlighted = highlightJSON(formatted);
+                    
+                    return `<div class="code-container">
+                        <div class="code-block">${highlighted}</div>
+                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(formatted)}')">Copy</button>
+                    </div>`;
+                } catch (e) {
+                    const highlighted = highlightPartialJSON(jsonContent.trim());
+                    return `<div class="code-container">
+                        <div class="code-block">${highlighted}</div>
+                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(jsonContent.trim())}')">Copy</button>
+                    </div>`;
+                }
+            });
+
+            // Handle regular code blocks
+            content = content.replace(/```\s*([\s\S]*?)\s*```/g, function(match, codeContent) {
+                const trimmed = codeContent.trim();
+                if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        const formatted = JSON.stringify(parsed, null, 2);
+                        const highlighted = highlightJSON(formatted);
+                        
+                        return `<div class="code-container">
+                            <div class="code-block">${highlighted}</div>
+                            <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(formatted)}')">Copy</button>
+                        </div>`;
+                    } catch (e) {
+                        const highlighted = highlightPartialJSON(trimmed);
+                        return `<div class="code-container">
+                            <div class="code-block">${highlighted}</div>
+                            <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(trimmed)}')">Copy</button>
+                        </div>`;
+                    }
+                }
+                return match;
+            });
+            
+            // Handle raw JSON (without markdown blocks)
+            const trimmedContent = content.trim();
+            if (trimmedContent.startsWith('{') && trimmedContent.endsWith('}') && !content.includes('<div class="code-container">')) {
+                try {
+                    const parsed = JSON.parse(trimmedContent);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    const highlighted = highlightJSON(formatted);
+                    
+                    return `<div class="code-container">
+                        <div class="code-block">${highlighted}</div>
+                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(formatted)}')">Copy</button>
+                    </div>`;
+                } catch (e) {
+                    const highlighted = highlightPartialJSON(trimmedContent);
+                    return `<div class="code-container">
+                        <div class="code-block">${highlighted}</div>
+                        <button class="copy-button" onclick="copyToClipboard('${escapeForAttribute(trimmedContent)}')">Copy</button>
+                    </div>`;
+                }
+            }
+            
+            // For non-JSON content, just return with line breaks
+            return content.replace(/\n/g, '<br>');
+        }
+
+        function highlightPartialJSON(text) {
+            return text
+                .replace(/(".*?")(\s*:)/g, '<span class="json-key">$1</span><span class="json-punctuation">$2</span>')
+                .replace(/:\s*(".*?")/g, ': <span class="json-string">$1</span>')
+                .replace(/:\s*(\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+                .replace(/:\s*(true|false)/g, ': <span class="json-boolean">$1</span>')
+                .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>')
+                .replace(/([{}[\],])/g, '<span class="json-punctuation">$1</span>')
+                .replace(/\n/g, '<br>')
+                .replace(/ /g, '&nbsp;');
+        }
+
+        function highlightJSON(json) {
+            return json
+                .replace(/(".*?")(\s*:)/g, '<span class="json-key">$1</span><span class="json-punctuation">$2</span>')
+                .replace(/:\s*(".*?")/g, ': <span class="json-string">$1</span>')
+                .replace(/:\s*(\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+                .replace(/:\s*(true|false)/g, ': <span class="json-boolean">$1</span>')
+                .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>')
+                .replace(/([{}[\],])/g, '<span class="json-punctuation">$1</span>')
+                .replace(/\n/g, '<br>')
+                .replace(/ /g, '&nbsp;');
+        }
+
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeForAttribute(text) {
+            return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+        }
+
+        function copyToClipboard(text) {
+            const cleanText = text.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\'/g, "'");
+            navigator.clipboard.writeText(cleanText).then(() => {
+                // Show feedback
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#28a745';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#667eea';
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+
+        function addLoadingMessage() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant loading';
+            loadingDiv.id = 'loadingMessage';
+            loadingDiv.innerHTML = `
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            `;
+            chatMessages.appendChild(loadingDiv);
+            scrollToBottom();
+        }
+
+        function removeLoadingMessage() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            if (!puterReady) {
+                addMessage('❌ AI service not ready yet. Please wait a moment and try again.', 'system');
+                return;
+            }
+            
+            if (isProcessing || (!chatInput.value.trim() && selectedFilesArray.length === 0)) return;
+
+            const userMessage = chatInput.value.trim();
+            let fullMessage = userMessage;
+            
+            // Process files if any are selected
+            if (selectedFilesArray.length > 0) {
+                addMessage(`📎 Processing ${selectedFilesArray.length} file(s)...`, 'system');
+                
+                try {
+                    let fileContents = '';
+                    for (let file of selectedFilesArray) {
+                        const content = await readFileContent(file);
+                        
+                        if (file.type.startsWith('image/')) {
+                            fileContents += `\n\n--- Image: ${file.name} ---\n[Image data: ${content}]`;
+                        } else {
+                            fileContents += `\n\n--- File: ${file.name} ---\n${content}`;
+                        }
+                    }
+                    
+                    fullMessage = userMessage + fileContents;
+                    
+                    // Display user message with file info
+                    const fileInfo = selectedFilesArray.map(f => {
+                        const icon = f.type.startsWith('image/') ? '🖼️' : '📄';
+                        return `${icon} ${f.name}`;
+                    }).join(', ');
+                    addMessage(`${userMessage}\n📎 Files: ${fileInfo}`, 'user');
+                    
+                } catch (error) {
+                    addMessage('❌ Error processing files. Please try again.', 'system');
+                    return;
+                }
+            } else {
+                // Add regular user message
+                addMessage(userMessage, 'user');
+            }
+            
+            // Clear input and files
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            selectedFilesArray = [];
+            updateFileDisplay();
+            fileUploadArea.classList.remove('active');
+            
+            // Set processing state
+            isProcessing = true;
+            sendButton.disabled = true;
+            sendButton.textContent = 'Sending...';
+            
+            // Add loading message
+            addLoadingMessage();
+
+            try {
+                const fullPrompt = `${system}${fullMessage}`;
+                const chat_resp = await puter.ai.chat(fullPrompt, {
+                    model: 'claude-sonnet-4', 
+                    stream: true 
+                });
+                
+                removeLoadingMessage();
+                
+                // Create a message element for streaming response
+                const responseDiv = document.createElement('div');
+                responseDiv.className = 'message assistant';
+                chatMessages.appendChild(responseDiv);
+                
+                let fullResponse = '';
+                
+                for await (const part of chat_resp) {
+                    if (part?.text) {
+                        fullResponse += part.text;
+                        const formattedResponse = formatResponseContent(fullResponse);
+                        responseDiv.innerHTML = formattedResponse;
+                        scrollToBottom();
+                    }
+                }
+                
+            } catch (error) {
+                removeLoadingMessage();
+                addMessage('Sorry, there was an error processing your request. Please try again.', 'system');
+                console.error('Chat error:', error);
+            } finally {
+                // Re-enable input
+                isProcessing = false;
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send';
+                chatInput.focus();
+            }
+        }
+
+        function clearChat() {
+            chatMessages.innerHTML = `
+                <div class="message system">
+                    Chat cleared! Welcome back! I'm here to help extract keywords and provide suggestions for your AI agent queries.
+                </div>
+            `;
+            selectedFilesArray = [];
+            updateFileDisplay();
+            fileUploadArea.classList.remove('active');
+        }
+    </script>
+</body>
+</html>
