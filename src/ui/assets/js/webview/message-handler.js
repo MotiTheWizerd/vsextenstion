@@ -42,6 +42,11 @@ class MessageHandler {
       batchMode = false,
     } = data;
 
+    // Create unique execution ID for this tool execution
+    if (!this.currentExecutionId || status === "starting") {
+      this.currentExecutionId = `execution-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+
     console.group(`[Webview] handleToolStatus - Status: ${status}`);
     console.log("Tools:", tools);
     console.log("Current Index:", currentIndex);
@@ -81,7 +86,7 @@ class MessageHandler {
           ? this.getStartingIcon(primaryStartingCategory[0])
           : "🚀";
 
-        content = `<div class="${className} starting" data-tool-id="batch-starting">
+        content = `<div class="${className} starting" data-tool-id="batch-starting-${this.currentExecutionId}">
           <div class="tool-status-main">
             <div class="tool-icon">${startingIcon}</div>
             <div class="tool-content">
@@ -92,14 +97,6 @@ class MessageHandler {
             </div>
           </div>
         </div>`;
-
-        // Remove any existing batch starting indicator
-        const existingStarting = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-starting"]',
-        );
-        if (existingStarting) {
-          existingStarting.remove();
-        }
       } else {
         // Individual command starting (legacy support)
         const toolList =
@@ -119,9 +116,7 @@ class MessageHandler {
           ? this.getStartingIcon(primaryIndividualStartingCategory[0])
           : "🚀";
 
-        content = `<div class="${className} starting" data-tool-id="current-starting-${
-          currentIndex || "batch"
-        }">
+        content = `<div class="${className} starting" data-tool-id="current-starting-${this.currentExecutionId}">
           <div class="tool-status-main">
             <div class="tool-icon">${individualStartingIcon}</div>
             <div class="tool-content">
@@ -132,13 +127,6 @@ class MessageHandler {
             </div>
           </div>
         </div>`;
-
-        const existingStarting = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
-        );
-        if (existingStarting) {
-          existingStarting.remove();
-        }
       }
       console.log(
         "[Webview] Starting content created:",
@@ -158,7 +146,7 @@ class MessageHandler {
         const progressText =
           currentIndex && totalCount ? ` (${currentIndex}/${totalCount})` : "";
 
-        content = `<div class="${className} working" data-tool-id="batch-working">
+        content = `<div class="${className} working" data-tool-id="batch-working-${this.currentExecutionId}">
           <div class="tool-status-main">
             <div class="tool-icon">⚡</div>
             <div class="tool-content">
@@ -172,17 +160,17 @@ class MessageHandler {
           <div class="tool-progress"></div>
         </div>`;
 
-        // Remove the batch starting indicator
+        // Remove the batch starting indicator for this execution only
         const existingStarting = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-starting"]',
+          `[data-tool-id="batch-starting-${this.currentExecutionId}"]`,
         );
         if (existingStarting) {
           existingStarting.remove();
         }
 
-        // Update existing working indicator or create new one
+        // Update existing working indicator or create new one for this execution only
         const existingWorking = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-working"]',
+          `[data-tool-id="batch-working-${this.currentExecutionId}"]`,
         );
         if (existingWorking) {
           // Update the text content of the existing working indicator
@@ -199,9 +187,7 @@ class MessageHandler {
         const progressText =
           currentIndex && totalCount ? ` (${currentIndex}/${totalCount})` : "";
 
-        content = `<div class="${className} working" data-tool-id="current-working-${
-          currentIndex || "batch"
-        }">
+        content = `<div class="${className} working" data-tool-id="current-working-${this.currentExecutionId}">
           <div class="tool-status-main">
             <div class="tool-icon">⚡</div>
             <div class="tool-content">
@@ -216,14 +202,14 @@ class MessageHandler {
         </div>`;
 
         const existingStarting = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
+          `[data-tool-id="current-starting-${this.currentExecutionId}"]`,
         );
         if (existingStarting) {
           existingStarting.remove();
         }
 
         const existingWorking = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-working-${currentIndex || "batch"}"]`,
+          `[data-tool-id="current-working-${this.currentExecutionId}"]`,
         );
         if (existingWorking) {
           existingWorking.remove();
@@ -242,26 +228,35 @@ class MessageHandler {
 
       if (batchMode) {
         // Log DOM state before removal
-        console.log("DOM: Looking for batch indicators to remove...");
+        console.log(
+          "DOM: Looking for batch indicators to remove for this execution...",
+        );
         const startingIndicator = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-starting"]',
+          `[data-tool-id="batch-starting-${this.currentExecutionId}"]`,
         );
         console.log(
-          "DOM: Found batch-starting indicator?",
+          "DOM: Found batch-starting indicator for this execution?",
           !!startingIndicator,
         );
         if (startingIndicator) {
           startingIndicator.remove();
-          console.log("DOM: Removed batch-starting indicator");
+          console.log(
+            "DOM: Removed batch-starting indicator for this execution",
+          );
         }
 
         const workingIndicator = this.chatUI.chatMessages.querySelector(
-          '[data-tool-id="batch-working"]',
+          `[data-tool-id="batch-working-${this.currentExecutionId}"]`,
         );
-        console.log("DOM: Found batch-working indicator?", !!workingIndicator);
+        console.log(
+          "DOM: Found batch-working indicator for this execution?",
+          !!workingIndicator,
+        );
         if (workingIndicator) {
           workingIndicator.remove();
-          console.log("DOM: Removed batch-working indicator");
+          console.log(
+            "DOM: Removed batch-working indicator for this execution",
+          );
         }
 
         // Check if results contain file paths
@@ -336,7 +331,7 @@ class MessageHandler {
           : "⚙️";
 
         if (failedCount > 0) {
-          content = `<div class="${className} partial" data-tool-id="batch-completed">
+          content = `<div class="${className} partial" data-tool-id="batch-completed-${this.currentExecutionId}">
             <div class="tool-status-main">
               <div class="tool-icon">⚠️</div>
               <div class="tool-content">
@@ -354,7 +349,7 @@ class MessageHandler {
             ${dropdownHtml}
           </div>`;
         } else {
-          content = `<div class="${className} success" data-tool-id="batch-completed">
+          content = `<div class="${className} success" data-tool-id="batch-completed-${this.currentExecutionId}">
             <div class="tool-status-main">
               <div class="tool-icon">${commandIcon}</div>
               <div class="tool-content">
@@ -373,14 +368,14 @@ class MessageHandler {
       } else {
         // Individual command completion (legacy support)
         const startingIndicator = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
+          `[data-tool-id="current-starting-${this.currentExecutionId}"]`,
         );
         if (startingIndicator) {
           startingIndicator.remove();
         }
 
         const workingIndicator = this.chatUI.chatMessages.querySelector(
-          `[data-tool-id="current-working-${currentIndex || "batch"}"]`,
+          `[data-tool-id="current-working-${this.currentExecutionId}"]`,
         );
         if (workingIndicator) {
           workingIndicator.remove();
@@ -435,9 +430,7 @@ class MessageHandler {
           : "⚙️";
 
         if (failedCount > 0) {
-          content = `<div class="${className} partial" data-tool-id="completed-${
-            currentIndex || "batch"
-          }">
+          content = `<div class="${className} partial" data-tool-id="completed-${this.currentExecutionId}">
             <div class="tool-status-main">
               <div class="tool-icon">⚠️</div>
               <div class="tool-content">
@@ -455,9 +448,7 @@ class MessageHandler {
             ${dropdownHtml}
           </div>`;
         } else {
-          content = `<div class="tool-status success" data-tool-id="completed-${
-            currentIndex || "batch"
-          }">
+          content = `<div class="tool-status success" data-tool-id="completed-${this.currentExecutionId}">
             <div class="tool-status-main">
               <div class="tool-icon">${individualIcon}</div>
               <div class="tool-content">
@@ -487,16 +478,16 @@ class MessageHandler {
       console.log("Total Count:", totalCount);
       console.groupEnd();
 
-      // Remove both starting and working indicators for this command
+      // Remove both starting and working indicators for this execution
       const startingIndicator = this.chatUI.chatMessages.querySelector(
-        `[data-tool-id="current-starting-${currentIndex || "batch"}"]`,
+        `[data-tool-id="current-starting-${this.currentExecutionId}"]`,
       );
       if (startingIndicator) {
         startingIndicator.remove();
       }
 
       const workingIndicator = this.chatUI.chatMessages.querySelector(
-        `[data-tool-id="current-working-${currentIndex || "batch"}"]`,
+        `[data-tool-id="current-working-${this.currentExecutionId}"]`,
       );
       if (workingIndicator) {
         workingIndicator.remove();
@@ -506,9 +497,7 @@ class MessageHandler {
       const progressText =
         currentIndex && totalCount ? ` (${currentIndex}/${totalCount})` : "";
 
-      content = `<div class="${className} failed" data-tool-id="failed-${
-        currentIndex || "batch"
-      }">
+      content = `<div class="${className} failed" data-tool-id="failed-${this.currentExecutionId}">
         <div class="tool-status-main">
           <div class="tool-icon">❌</div>
           <div class="tool-content">
@@ -530,28 +519,34 @@ class MessageHandler {
       const messageDiv = document.createElement("div");
       messageDiv.className = `tool-status ${status}`;
       messageDiv.setAttribute("data-status", status);
+
       if (tools && tools.length > 0) {
         messageDiv.setAttribute("data-tool", tools[0]);
       }
 
-      // Log before DOM manipulation
-      console.log(
-        "Before DOM update - Existing elements with same tool:",
-        this.chatUI.chatMessages.querySelectorAll(
-          `[data-tool="${tools && tools[0]}"]`,
-        ).length,
-      );
-
-      const existingStatus = this.chatUI.chatMessages.querySelector(
-        `[data-status][data-tool="${tools && tools[0]}"]`,
-      );
-
-      if (existingStatus) {
-        console.log("Replacing existing status message");
-        existingStatus.replaceWith(messageDiv);
-      } else {
-        console.log("Appending new status message");
+      // For completed status, always create new message to preserve all completed tools
+      if (status === "completed") {
+        console.log("Creating new completed tool status message");
         this.chatUI.chatMessages.appendChild(messageDiv);
+      } else {
+        // For starting/working/error, look for existing non-completed messages to replace
+        // Only replace the most recent non-completed message to avoid replacing completed ones
+        const nonCompletedMessages = Array.from(
+          this.chatUI.chatMessages.querySelectorAll(
+            '[data-status]:not([data-status="completed"])',
+          ),
+        );
+
+        const existingStatus =
+          nonCompletedMessages[nonCompletedMessages.length - 1];
+
+        if (existingStatus && (status === "working" || status === "error")) {
+          console.log("Updating most recent non-completed status message");
+          existingStatus.replaceWith(messageDiv);
+        } else {
+          console.log("Creating new tool status message");
+          this.chatUI.chatMessages.appendChild(messageDiv);
+        }
       }
 
       // Set content after DOM insertion

@@ -2,24 +2,108 @@
 
 ## Architecture Overview
 
-RayDaemon is built as a VS Code extension with a webview-based chat interface. The architecture consists of three main layers:
+RayDaemon is built as a VS Code extension with a webview-based chat interface supporting multi-round tool execution workflows. The architecture consists of four main layers:
 
-1. **Extension Layer** (`src/extension.ts`): Main VS Code extension logic
+1. **Extension Layer** (`src/extension.ts`): Main VS Code extension logic, multi-round execution handling
 2. **Webview Layer** (`src/ui/`): Frontend chat interface and file operations
 3. **Command Layer** (`src/commands/`): Command execution and file system operations
+4. **Session Layer** (`src/utils/sessionManager.ts`): Project and chat session management
+
+## API Message Structure
+
+RayDaemon uses a simplified JSON structure for communication with Ray API:
+
+### Current Message Format
+```json
+{
+  "message": "User's message here",
+  "model": null,
+  "project_id": "my-workspace-a1b2c3d4",
+  "chat_id": "chat-e5f6g7h8",
+  "user_id": "user-b3c4d5e6f7g8"
+}
+```
+
+### Message with Command Results
+```json
+{
+  "message": "User's message here",
+  "command_results": [...],
+  "model": null,
+  "project_id": "my-workspace-a1b2c3d4",
+  "chat_id": "chat-e5f6g7h8",
+  "user_id": "user-b3c4d5e6f7g8"
+}
+```
+
+### Session Management
+- **Project ID**: Generated from workspace folder name and path hash for consistency
+- **Chat ID**: Unique identifier for each chat session, persists during VS Code session
+- **User ID**: Generated from VS Code machine ID hash for user consistency across sessions
+- **API Endpoint**: `http://localhost:8000/api/vscode_user_message`
+
+### Multi-Round Tool Execution
+
+RayDaemon supports complex workflows where Ray can send follow-up responses with additional command calls, enabling iterative task completion:
+
+```
+User Request → Ray Response (Commands) → Execute → Send Results → Ray Follow-up (More Commands) → Execute → Final Response
+```
+
+**Critical**: As of v1.2.2, a race condition fix ensures follow-up command rounds execute without blocking.
 
 ## Core Components
+
+### Session Layer
+
+#### SessionManager (`src/utils/sessionManager.ts`)
+
+- **Purpose**: Manages project and chat session identifiers
+- **Key Features**:
+  - Singleton pattern for consistent session management
+  - Workspace-based project ID generation with fallback
+  - Chat session management with new session support
+  - Automatic ID generation using crypto module
+
+```typescript
+const sessionManager = SessionManager.getInstance();
+const sessionInfo = sessionManager.getSessionInfo();
+// Returns: { projectId: "workspace-hash", chatId: "chat-random", userId: "user-hash" }
+```
 
 ### Extension Layer
 
 #### Main Extension (`src/extension.ts`)
 
-- **Purpose**: Entry point, message handling, file backup system
+- **Purpose**: Entry point, message handling, file backup system, execution state management
 - **Key Functions**:
   - `activate()`: Extension initialization
-  - `executeCommandCallsAndSendResults()`: Command batch execution
+  - `executeCommandCallsAndSendResults()`: Command batch execution with race condition prevention
   - `backupFileBeforeModification()`: File backup before Ray modifications
   - Message handlers for `openFile` and `showFileDiff`
+
+#### Configuration (`src/config.ts`)
+
+- **Purpose**: API configuration and message formatting with session tracking
+- **Key Features**:
+  - Automatic session ID injection into all messages
+  - Simplified message structure (removed legacy fields)
+  - Consistent formatting for user messages and command results
+
+```typescript
+// Automatically includes project_id and chat_id
+const messageData = config.formatMessage("Hello Ray!");
+```
+
+#### CommandExecutor (`src/extension_utils/commandExecutor.ts`)
+
+- **Purpose**: Multi-round tool execution with proper state management
+- **Critical Fix (v1.2.2)**: Race condition prevention in multi-round execution
+- **Key Features**:
+  - Execution state tracking with `isExecutingTools` flag
+  - Reset execution state BEFORE sending results to Ray (prevents race condition)
+  - Support for follow-up command rounds without blocking
+  - Unique execution ID tracking for debugging multi-round flows
 
 #### File Backup System
 
@@ -46,8 +130,72 @@ backupFileBeforeModification() → executeOne() → clearOldBackups()
 
 #### Message Handler (`src/ui/assets/js/webview/message-handler.js`)
 
-- **Purpose**: Processes messages between webview and extension
+- **Purpose**: Processes messages between webview and extension, handles multi-round execution UI updates
 - **Key Methods**:
+  - `handleIncomingMessage()`: Main message router with duplicate prevention
+  - `handleToolStatus()`: Tool execution progress for multi-round workflows
+  - `handleRayResponse()`: Response processing with follow-up support
+
+## Critical Race Condition Fix (v1.2.2)
+
+### Problem
+Multi-round tool execution workflows were failing with "Tools already executing, skipping duplicate execution" errors.
+
+### Root Cause
+```typescript
+// BEFORE (broken):
+async executeCommandCallsAndSendResults() {
+  this.isExecutingTools = true;
+  // ... execute tools ...
+  await sendResultsToRay();  // May trigger follow-up with more commands
+  // ... isExecutingTools still true when follow-up arrives ...
+  finally {
+    this.isExecutingTools = false; // Too late!
+  }
+}
+```
+
+### Solution
+```typescript
+// AFTER (fixed):
+async executeCommandCallsAndSendResults() {
+  this.isExecutingTools = true;
+  // ... execute tools ...
+  this.isExecutingTools = false;  // Reset BEFORE sending results
+  await sendResultsToRay();  // Follow-up commands can now execute
+  finally {
+    this.isExecutingTools = false; // Ensure cleanup
+  }
+}
+```
+
+### Files Modified
+- `src/extension_utils/commandExecutor.ts`: Primary race condition fix
+- `src/rayLoop.ts`: ActiveToolExecution flag management  
+- `src/ui/RayDaemonViewProvider.ts`: Duplicate message prevention
+
+## Multi-Round Execution Debugging
+
+### Execution ID Tracking
+Each tool execution gets a unique ID for debugging:
+```
+[RayDaemon] [123456] executeCommandCallsAndSendResults CALLED
+[RayDaemon] [789012] executeCommandCallsAndSendResults CALLED  ← Follow-up round
+```
+
+### Success Pattern
+```
+[RayDaemon] [XXXXXX] Current isExecutingTools state: false
+[RayDaemon] [XXXXXX] Setting isExecutingTools = true and starting execution
+[RayDaemon] [XXXXXX] isExecutingTools reset to false, now sending results to Ray
+[RayDaemon] [YYYYYY] Current isExecutingTools state: false  ← Should be false for follow-ups
+```
+
+### Failure Pattern (Before Fix)
+```
+[RayDaemon] [YYYYYY] Current isExecutingTools state: true  ← Race condition!
+[RayDaemon] [YYYYYY] RACE CONDITION: Tools already executing, skipping duplicate execution
+```
   - `handleToolStatus()`: Processes command execution status
   - `handleIncomingMessage()`: Routes incoming messages
 
@@ -168,7 +316,9 @@ src/
 │       ├── css/              # Stylesheets
 │       └── js/               # JavaScript modules
 │           └── webview/      # Webview-specific modules
-└── config.ts                 # Configuration management
+├── utils/                    # Utility modules
+│   └── sessionManager.ts     # Session and ID management
+└── config.ts                 # Configuration and message formatting
 ```
 
 ### Key Modules
@@ -179,6 +329,20 @@ src/
 - Message handling between webview and extension
 - File backup system implementation
 - Command execution orchestration
+
+#### `src/config.ts`
+
+- API endpoint and header configuration
+- Message formatting with automatic session injection
+- Support for both user messages and command results
+- Session-aware message structure
+
+#### `src/utils/sessionManager.ts`
+
+- Singleton session management
+- Project ID generation from workspace context
+- Chat session lifecycle management
+- Cryptographic ID generation for uniqueness
 
 #### `src/ui/assets/js/webview/file-utils.js`
 
@@ -194,6 +358,31 @@ src/
 - Error handling and user feedback
 
 ## Adding New Features
+
+### Adding Session-Aware Features
+
+1. **Access Session Information**:
+
+```typescript
+import { SessionManager } from "./utils/sessionManager";
+
+const sessionManager = SessionManager.getInstance();
+const { projectId, chatId } = sessionManager.getSessionInfo();
+```
+
+2. **Start New Chat Session**:
+
+```typescript
+// Start a new chat (generates new chat_id)
+const newChatId = sessionManager.startNewChat();
+```
+
+3. **Project-Specific Features**:
+
+```typescript
+// Use project_id for project-specific functionality
+const projectConfig = getProjectConfig(sessionManager.getProjectId());
+```
 
 ### Adding a New File Operation
 
@@ -304,6 +493,29 @@ describe("FileUtils", () => {
     const fileUtils = new FileUtils();
     const cleaned = fileUtils.cleanFilePath('  "path/to/file.js"  ');
     expect(cleaned).toBe("path/to/file.js");
+  });
+});
+
+describe("SessionManager", () => {
+  it("should generate consistent project IDs", () => {
+    const sessionManager = SessionManager.getInstance();
+    const projectId1 = sessionManager.getProjectId();
+    const projectId2 = sessionManager.getProjectId();
+    expect(projectId1).toBe(projectId2);
+  });
+
+  it("should generate unique chat IDs", () => {
+    const sessionManager = SessionManager.getInstance();
+    const chatId1 = sessionManager.getChatId();
+    const chatId2 = sessionManager.startNewChat();
+    expect(chatId1).not.toBe(chatId2);
+  });
+
+  it("should generate consistent user IDs", () => {
+    const sessionManager = SessionManager.getInstance();
+    const userId1 = sessionManager.getUserId();
+    const userId2 = sessionManager.getUserId();
+    expect(userId1).toBe(userId2);
   });
 });
 ```
@@ -446,6 +658,10 @@ Include:
 - **Diff History**: Track multiple versions of changes
 - **Export Functionality**: Save diffs to files
 - **Undo System**: Revert changes using backups
+- **Project Context**: Use project_id for project-specific AI context
+- **Chat History**: Leverage chat_id for conversation persistence
+- **User Context**: Use user_id for user-specific preferences and history
+- **Multi-Chat Support**: Support multiple concurrent chat sessions
 
 ### Technical Improvements
 
@@ -458,5 +674,7 @@ Include:
 
 - **Plugin System**: Support for custom file operations
 - **API Extensions**: External tool integration
-- **Cloud Sync**: Backup synchronization
-- **Collaborative Features**: Multi-user support
+- **Cloud Sync**: Backup synchronization with project/chat/user awareness
+- **Collaborative Features**: Multi-user support with session tracking
+- **Session Persistence**: Store and restore session state across VS Code restarts
+- **Advanced Session Management**: Project switching, chat archiving, user preferences, and context management

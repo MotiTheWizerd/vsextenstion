@@ -1,13 +1,77 @@
+/* Tool Status Theme Variables - Dark Gold Theme */
+:root {
+    /* Primary theme colors - Bright Gold with Dark Dominance */
+    --tool-primary: rgba(255, 193, 7, 1); /* Bright Gold */
+    --tool-primary-light: rgba(255, 215, 0, 1); /* Pure Gold */
+    --tool-primary-bg: rgba(25, 25, 25, 0.95); /* Dark background dominance */
+    --tool-primary-bg-light: rgba(
+        255,
+        193,
+        7,
+        0.15
+    ); /* Gold accent background */
+    --tool-primary-border: rgba(255, 193, 7, 0.4); /* Gold border */
+    --tool-primary-border-strong: rgba(
+        255,
+        193,
+        7,
+        0.8
+    ); /* Strong gold border */
+    --tool-primary-icon-bg: rgba(255, 193, 7, 0.2); /* Icon background */
+    --tool-primary-badge-bg: rgba(25, 25, 25, 0.9); /* Dark badge background */
+    --tool-primary-badge-border: rgba(255, 193, 7, 0.5); /* Gold badge border */
+    --tool-primary-badge-color: rgba(255, 193, 7, 1); /* Gold badge text */
+
+    /* Animation and glow colors */
+    --tool-primary-glow-light: rgba(255, 193, 7, 0.2);
+    --tool-primary-glow-medium: rgba(255, 193, 7, 0.3);
+    --tool-primary-glow-strong: rgba(255, 193, 7, 0.4);
+
+    /* Secondary theme colors - Dark Indigo */
+    --tool-indigo: rgba(79, 70, 229, 1);
+    --tool-indigo-bg: rgba(25, 25, 25, 0.95);
+    --tool-indigo-bg-light: rgba(79, 70, 229, 0.15);
+    --tool-indigo-border: rgba(79, 70, 229, 0.4);
+    --tool-indigo-icon-bg: rgba(79, 70, 229, 0.2);
+    --tool-indigo-badge-bg: rgba(25, 25, 25, 0.9);
+    --tool-indigo-badge-border: rgba(79, 70, 229, 0.5);
+    --tool-indigo-badge-color: rgba(129, 140, 248, 1);
+    --tool-indigo-glow: rgba(79, 70, 229, 0.4);
+    --tool-indigo-glow-light: rgba(79, 70, 229, 0.2);
+
+    /* Partial state colors - Dark Amber */
+    --tool-amber: rgba(245, 158, 11, 1);
+    --tool-amber-bg: rgba(25, 25, 25, 0.95);
+    --tool-amber-bg-light: rgba(245, 158, 11, 0.15);
+    --tool-amber-border: rgba(245, 158, 11, 0.4);
+    --tool-amber-border-strong: rgba(245, 158, 11, 0.8);
+    --tool-amber-icon-bg: rgba(245, 158, 11, 0.2);
+    --tool-amber-badge-bg: rgba(25, 25, 25, 0.9);
+    --tool-amber-badge-border: rgba(245, 158, 11, 0.5);
+    --tool-amber-badge-color: rgba(245, 158, 11, 1);
+
+    /* Error state colors - Dark Red */
+    --tool-red: rgba(239, 68, 68, 1);
+    --tool-red-bg: rgba(25, 25, 25, 0.95);
+    --tool-red-bg-light: rgba(239, 68, 68, 0.15);
+    --tool-red-border: rgba(239, 68, 68, 0.4);
+    --tool-red-border-strong: rgba(239, 68, 68, 0.8);
+    --tool-red-icon-bg: rgba(239, 68, 68, 0.2);
+    --tool-red-badge-bg: rgba(25, 25, 25, 0.9);
+    --tool-red-badge-border: rgba(239, 68, 68, 0.5);
+    --tool-red-badge-color: rgba(239, 68, 68, 1);
+}
+
 .tool-status {
-    padding: 12px 16px;
-    border-radius: 12px;
-    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     transition: all 0.3s ease;
+    margin-bottom: 8px;
     font-family: var(
         --vscode-font-family,
         "Segoe UI",
@@ -16,7 +80,17 @@
         Verdana,
         sans-serif
     );
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    min-height: 40px;
+}
+
+/* Main tool status container - horizontal layout */
+.tool-status-main {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
 }
 
 .tool-status:hover {
@@ -27,69 +101,129 @@
 .tool-status-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    width: 100%;
-    position: relative;
-    z-index: 2;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
 }
 
-.tool-status-icon {
-    width: 32px;
-    height: 32px;
+/* Tool icon styles - match both naming conventions */
+.tool-status-icon,
+.tool-icon {
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(6px);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
     flex-shrink: 0;
-    position: relative;
-    z-index: 2;
-    font-size: 18px;
+    font-size: 14px;
 }
 
-.tool-status-content {
+/* Tool content styles - match both naming conventions */
+.tool-status-content,
+.tool-content {
     flex: 1;
     min-width: 0;
-    position: relative;
-    z-index: 2;
-}
-
-.tool-status-title {
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.4;
-    margin-bottom: 4px;
-    color: var(--vscode-editor-foreground);
-}
-
-.tool-status-description {
-    font-size: 13px;
-    line-height: 1.4;
-    color: var(--vscode-descriptionForeground);
-    opacity: 0.9;
-}
-
-.tool-status-meta {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 4px;
 }
 
-.tool-status-badge {
+/* Tool text styles */
+.tool-status-title,
+.tool-text {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--vscode-editor-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tool-status-description {
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--vscode-descriptionForeground);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 4px;
+}
+
+/* Tool meta styles - match both naming conventions */
+.tool-status-meta,
+.tool-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Tool badge styles - match both naming conventions */
+.tool-status-badge,
+.tool-badge {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
+    padding: 3px 9px;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.6px;
-    background: rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    letter-spacing: 0.4px;
+    background: var(--tool-primary-badge-bg);
+    color: var(--tool-primary-badge-color);
+    border: 1px solid var(--tool-primary-badge-border);
+    white-space: nowrap;
 }
+
+/* Tool count styles - match both naming conventions */
+.tool-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--tool-primary-badge-bg);
+    color: var(--tool-primary-badge-color);
+    border: 1px solid var(--tool-primary-badge-border);
+    white-space: nowrap;
+}
+
+/* Expandable badge styles */
+.tool-status-badge.tool-count.expandable,
+.tool-count.expandable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tool-status-badge.tool-count.expandable::after,
+.tool-count.expandable::after {
+    content: "▼";
+    font-size: 10px;
+    margin-left: 6px;
+    transition: transform 0.3s ease;
+    opacity: 0.7;
+}
+
+.tool-status-badge.tool-count.expandable:hover,
+.tool-count.expandable:hover {
+    background: var(--tool-primary-badge-bg);
+    border-color: var(--tool-primary-border-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.tool-status-badge.tool-count.expanded::after,
+.tool-count.expanded::after {
+    transform: rotate(180deg);
+}
+
+/* Dropdown positioning for one-line layout - now handled by tool-dropdown.css */
 
 /* Tool icons */
 .tool-icon {
@@ -99,254 +233,132 @@
     margin-right: 4px;
 }
 
-/* Status-specific styles */
+/* STATUS-SPECIFIC STYLES WITH DARK DOMINANCE */
+
+/* Starting - Indigo with dark background */
 .tool-status.starting {
     background: linear-gradient(
         135deg,
-        rgba(79, 70, 229, 0.2) 0%,
-        rgba(129, 140, 248, 0.12) 100%
+        var(--tool-indigo-bg) 0%,
+        var(--tool-indigo-bg-light) 100%
     );
-    border: 1px solid rgba(79, 70, 229, 0.25);
+    border: 1px solid var(--tool-indigo-border);
 }
 
 .tool-status.starting .tool-status-icon {
-    background: rgba(79, 70, 229, 0.25);
-    color: rgba(79, 70, 229, 1);
+    background: var(--tool-indigo-icon-bg);
+    color: var(--tool-indigo);
     animation: pulse-indigo 2s infinite;
 }
 
 .tool-status.starting .tool-status-badge {
-    background: rgba(79, 70, 229, 0.2);
-    color: rgba(79, 70, 229, 0.95);
-    border-color: rgba(79, 70, 229, 0.3);
+    background: var(--tool-indigo-badge-bg);
+    color: var(--tool-indigo-badge-color);
+    border-color: var(--tool-indigo-badge-border);
 }
 
-.tool-status.starting::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.08),
-        transparent
-    );
-    animation: shimmer 2.5s infinite;
-    z-index: 1;
-}
-
+/* Working - Bright Gold with dark background */
 .tool-status.working {
     background: linear-gradient(
         135deg,
-        rgba(16, 185, 129, 0.2) 0%,
-        rgba(5, 150, 105, 0.12) 100%
+        var(--tool-primary-bg) 0%,
+        var(--tool-primary-bg-light) 100%
     );
-    border: 1px solid rgba(16, 185, 129, 0.25);
+    border: 1px solid var(--tool-primary-border);
     animation: working-glow 2s ease-in-out infinite alternate;
 }
 
 .tool-status.working .tool-status-icon {
-    background: rgba(16, 185, 129, 0.25);
-    color: rgba(16, 185, 129, 1);
-    animation: pulse-emerald 1.5s infinite;
+    background: var(--tool-primary-icon-bg);
+    color: var(--tool-primary);
+    animation: pulse-gold 1.5s infinite;
 }
 
 .tool-status.working .tool-status-badge {
-    background: rgba(16, 185, 129, 0.2);
-    color: rgba(16, 185, 129, 0.95);
-    border-color: rgba(16, 185, 129, 0.3);
+    background: var(--tool-primary-badge-bg);
+    color: var(--tool-primary-badge-color);
+    border-color: var(--tool-primary-badge-border);
 }
 
-.tool-status.working::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.08),
-        transparent
-    );
-    animation: shimmer 2s infinite;
-    z-index: 1;
-}
-
-.tool-status.completed {
+/* Completed - Bright Gold with dark background */
+.tool-status.completed,
+.tool-status.success {
     background: linear-gradient(
         135deg,
-        rgba(16, 185, 129, 0.2) 0%,
-        rgba(5, 150, 105, 0.12) 100%
+        var(--tool-primary-bg) 0%,
+        var(--tool-primary-bg-light) 100%
     );
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    border-left: 3px solid rgba(16, 185, 129, 0.8);
+    border: 1px solid var(--tool-primary-border);
+    border-left: 3px solid var(--tool-primary-border-strong);
     animation: completion-pulse 1.5s ease-out;
 }
 
-.tool-status.completed .tool-status-icon {
-    background: rgba(16, 185, 129, 0.25);
-    color: rgba(16, 185, 129, 1);
+.tool-status.completed .tool-status-icon,
+.tool-status.success .tool-status-icon {
+    background: var(--tool-primary-icon-bg);
+    color: var(--tool-primary);
 }
 
-.tool-status.completed .tool-status-badge {
-    background: rgba(16, 185, 129, 0.2);
-    color: rgba(16, 185, 129, 0.95);
-    border-color: rgba(16, 185, 129, 0.3);
+.tool-status.completed .tool-status-badge,
+.tool-status.success .tool-status-badge {
+    background: var(--tool-primary-badge-bg);
+    color: var(--tool-primary-badge-color);
+    border-color: var(--tool-primary-badge-border);
 }
 
+/* Partial - Amber with dark background */
 .tool-status.partial {
     background: linear-gradient(
         135deg,
-        rgba(245, 158, 11, 0.2) 0%,
-        rgba(217, 119, 6, 0.12) 100%
+        var(--tool-amber-bg) 0%,
+        var(--tool-amber-bg-light) 100%
     );
-    border: 1px solid rgba(245, 158, 11, 0.25);
-    border-left: 3px solid rgba(245, 158, 11, 0.8);
+    border: 1px solid var(--tool-amber-border);
+    border-left: 3px solid var(--tool-amber-border-strong);
 }
 
 .tool-status.partial .tool-status-icon {
-    background: rgba(245, 158, 11, 0.25);
-    color: rgba(245, 158, 11, 1);
+    background: var(--tool-amber-icon-bg);
+    color: var(--tool-amber);
 }
 
 .tool-status.partial .tool-status-badge {
-    background: rgba(245, 158, 11, 0.2);
-    color: rgba(245, 158, 11, 0.95);
-    border-color: rgba(245, 158, 11, 0.3);
+    background: var(--tool-amber-badge-bg);
+    color: var(--tool-amber-badge-color);
+    border-color: var(--tool-amber-badge-border);
 }
 
+/* Failed - Red with dark background */
 .tool-status.failed {
     background: linear-gradient(
         135deg,
-        rgba(239, 68, 68, 0.2) 0%,
-        rgba(220, 38, 38, 0.12) 100%
+        var(--tool-red-bg) 0%,
+        var(--tool-red-bg-light) 100%
     );
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    border-left: 3px solid rgba(239, 68, 68, 0.8);
+    border: 1px solid var(--tool-red-border);
+    border-left: 3px solid var(--tool-red-border-strong);
 }
 
 .tool-status.failed .tool-status-icon {
-    background: rgba(239, 68, 68, 0.25);
-    color: rgba(239, 68, 68, 1);
+    background: var(--tool-red-icon-bg);
+    color: var(--tool-red);
 }
 
 .tool-status.failed .tool-status-badge {
-    background: rgba(239, 68, 68, 0.2);
-    color: rgba(239, 68, 68, 0.95);
-    border-color: rgba(239, 68, 68, 0.3);
+    background: var(--tool-red-badge-bg);
+    color: var(--tool-red-badge-color);
+    border-color: var(--tool-red-badge-border);
 }
 
-/* Tool spinner for working state */
-.tool-spinner {
-    border: 2px solid rgba(16, 185, 129, 0.2);
-    border-top: 2px solid rgba(16, 185, 129, 0.8);
-    border-radius: 50%;
-    width: 16px;
-    height: 16px;
-    animation: spin 1s linear infinite;
-    position: relative;
-    z-index: 2;
-}
-
-/* Progress bar for working state */
+/* HIDE DETAILS IN ONE-LINE MODE */
+.tool-details,
+.tool-details-toggle,
 .tool-progress {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 3px;
-    background: linear-gradient(
-        90deg,
-        rgba(16, 185, 129, 0.6),
-        rgba(5, 150, 105, 0.8)
-    );
-    animation: progress 2s ease-in-out infinite;
-    width: 0%;
-    z-index: 1;
+    display: none !important;
 }
 
-/* Tool details area for expandable content */
-.tool-details {
-    background: rgba(0, 0, 0, 0.06);
-    border-radius: 8px;
-    padding: 12px;
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--vscode-editor-foreground);
-    opacity: 0.9;
-    display: none;
-    max-height: 0;
-    overflow: hidden;
-    transition:
-        max-height 0.3s ease-out,
-        padding 0.3s ease-out,
-        margin-top 0.3s ease-out;
-}
-
-.tool-status.expanded .tool-details {
-    display: block;
-    max-height: 300px;
-    overflow-y: auto;
-    animation: fadeIn 0.3s ease-in-out;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.tool-details-toggle {
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    font-size: 12px;
-    margin-top: 4px;
-    padding: 3px 8px;
-    color: var(--vscode-textLink-foreground);
-    user-select: none;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-}
-
-.tool-details-toggle:hover {
-    background-color: rgba(var(--vscode-textLink-foreground, 0, 120, 212), 0.1);
-}
-
-.tool-details-toggle::after {
-    content: "▼";
-    font-size: 8px;
-    margin-left: 5px;
-    transition: transform 0.2s ease;
-}
-
-.tool-status.expanded .tool-details-toggle::after {
-    transform: rotate(180deg);
-}
-
-.tool-detail-item {
-    padding: 6px 8px;
-    border-radius: 4px;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.tool-detail-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.tool-detail-item .tool-icon {
-    font-size: 14px;
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-}
+/* Override dropdown display for one-line layout - removed conflicting rules */
+/* Dropdown visibility is now handled by tool-dropdown.css */
 
 /* Tool-specific icons */
 .tool-fetch-icon::before {
@@ -371,71 +383,41 @@
     content: "🛠️";
 }
 
-/* Enhanced animations */
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes shimmer {
-    0% {
-        left: -100%;
-    }
-    100% {
-        left: 100%;
-    }
-}
-
+/* ENHANCED ANIMATIONS */
 @keyframes pulse-indigo {
     0%,
     100% {
-        box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4);
+        box-shadow: 0 0 0 0 var(--tool-indigo-glow);
         transform: scale(1);
     }
     50% {
-        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        box-shadow: 0 0 0 4px var(--tool-indigo-glow-light);
         transform: scale(1.05);
     }
 }
 
-@keyframes pulse-emerald {
+@keyframes pulse-gold {
     0%,
     100% {
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 0 0 var(--tool-primary-glow-medium);
         transform: scale(1);
     }
     50% {
-        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+        box-shadow: 0 0 0 4px var(--tool-primary-glow-light);
         transform: scale(1.05);
-    }
-}
-
-@keyframes progress {
-    0% {
-        width: 0%;
-    }
-    50% {
-        width: 70%;
-    }
-    100% {
-        width: 100%;
     }
 }
 
 @keyframes working-glow {
     0% {
         box-shadow:
-            0 2px 8px rgba(16, 185, 129, 0.1),
-            0 0 20px rgba(16, 185, 129, 0.05);
+            0 1px 4px var(--tool-primary-glow-light),
+            0 0 10px rgba(255, 193, 7, 0.1);
     }
     100% {
         box-shadow:
-            0 2px 12px rgba(16, 185, 129, 0.2),
-            0 0 30px rgba(16, 185, 129, 0.1);
+            0 1px 6px var(--tool-primary-glow-medium),
+            0 0 15px var(--tool-primary-glow-light);
     }
 }
 
@@ -443,105 +425,60 @@
     0% {
         transform: scale(1);
         box-shadow:
-            0 4px 16px rgba(16, 185, 129, 0.25),
-            0 0 0 1px rgba(16, 185, 129, 0.1);
+            0 2px 8px var(--tool-primary-glow-medium),
+            0 0 0 1px var(--tool-primary-glow-light);
     }
     50% {
         transform: scale(1.01);
         box-shadow:
-            0 6px 20px rgba(16, 185, 129, 0.35),
-            0 0 0 2px rgba(16, 185, 129, 0.2);
+            0 3px 12px var(--tool-primary-glow-strong),
+            0 0 0 2px var(--tool-primary-glow-medium);
     }
     100% {
         transform: scale(1);
         box-shadow:
-            0 4px 16px rgba(16, 185, 129, 0.25),
-            0 0 0 1px rgba(16, 185, 129, 0.1);
+            0 2px 8px var(--tool-primary-glow-medium),
+            0 0 0 1px var(--tool-primary-glow-light);
     }
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Dark theme adjustments */
+/* DARK THEME ENHANCED */
 .vscode-dark .tool-status {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
 .vscode-dark .tool-status:hover {
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
 }
 
-.vscode-dark .tool-status.starting {
-    background: linear-gradient(
-        135deg,
-        rgba(79, 70, 229, 0.25) 0%,
-        rgba(79, 70, 229, 0.1) 100%
-    );
-}
-
-.vscode-dark .tool-status.working {
-    background: linear-gradient(
-        135deg,
-        rgba(16, 185, 129, 0.25) 0%,
-        rgba(16, 185, 129, 0.1) 100%
-    );
-}
-
-.vscode-dark .tool-status.completed {
-    background: linear-gradient(
-        135deg,
-        rgba(16, 185, 129, 0.25) 0%,
-        rgba(16, 185, 129, 0.1) 100%
-    );
-}
-
-.vscode-dark .tool-status.partial {
-    background: linear-gradient(
-        135deg,
-        rgba(245, 158, 11, 0.25) 0%,
-        rgba(245, 158, 11, 0.1) 100%
-    );
-}
-
-.vscode-dark .tool-status.failed {
-    background: linear-gradient(
-        135deg,
-        rgba(239, 68, 68, 0.25) 0%,
-        rgba(239, 68, 68, 0.1) 100%
-    );
-}
-
-/* Responsive adjustments */
+/* RESPONSIVE - EVEN MORE COMPACT ON MOBILE */
 @media (max-width: 768px) {
     .tool-status {
-        padding: 10px 14px;
+        padding: 6px 10px;
+        min-height: 36px;
     }
 
     .tool-status-icon {
-        width: 28px;
-        height: 28px;
-        font-size: 16px;
-    }
-
-    .tool-status-title {
-        font-size: 13px;
-    }
-
-    .tool-status-description {
+        width: 20px;
+        height: 20px;
         font-size: 12px;
     }
 
-    .tool-status-badge {
-        padding: 3px 6px;
+    .tool-status-title {
+        font-size: 12px;
+    }
+
+    .tool-status-description {
         font-size: 10px;
     }
+
+    .tool-status-badge {
+        padding: 2px 6px;
+        font-size: 12px;
+    }
+}
+
+/* OVERRIDE ANY REMAINING COLUMN LAYOUTS */
+.tool-status * {
+    margin-bottom: 0 !important;
 }

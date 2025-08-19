@@ -1,6 +1,6 @@
 # RayDaemon – Message & Tool Flow (VS Code Extension)
 
-This doc maps the full path of a user message from the webview UI → extension → Ray API → (optional) tool execution → response back to UI, based on the extracted build artifacts in `media_unzipped/out`.
+This doc maps the full path of a user message from the webview UI → extension → Ray API → (optional) multi-round tool execution → response back to UI, including the critical race condition fixes for multi-round execution workflows.
 
 ---
 
@@ -10,10 +10,12 @@ This doc maps the full path of a user message from the webview UI → extension 
 2. Webview sends `{ command: 'sendMessage', message }` to the extension.
 3. Extension shows typing status and **POSTs** the message to **Ray API** (`config.apiEndpoint`).
 4. **Ray** replies **asynchronously** to a local **webhook server** (port `config.webhookPort`, default `3001`).
-5. The extension’s **RayResponseHandler** processes the response:
+5. The extension's **RayResponseHandler** processes the response:
    - If `command_calls` present → run tools via **CommandExecutor**, then send results back to Ray (round-trip).
+   - **Ray may send follow-up responses with MORE command_calls** → additional execution rounds.
    - Otherwise → immediately post the final content to the webview (`type: 'rayResponse'`).
-6. Webview renders the message(s); typing indicator hides.
+6. **Multi-round execution**: Steps 4-5 may repeat multiple times for complex workflows.
+7. Webview renders the message(s); typing indicator hides.
 
 ---
 
@@ -85,8 +87,11 @@ This doc maps the full path of a user message from the webview UI → extension 
      })
      ```
   3. Execute tools via **CommandExecutor.executeCommandCallsAndSendResults(content, commandCalls)**.
-  4. Send the structured **command results back to Ray** (`sendCommandResultsToRay()`), which makes another **POST** to the Ray server (same endpoint family) with `formatMessageWithResults(...)`.
-  5. Expect a **follow-up webhook** from Ray with the final response; process again (falls into Branch B below).
+  4. **CRITICAL**: Reset `isExecutingTools = false` BEFORE sending results to prevent race condition.
+  5. Send the structured **command results back to Ray** (`sendCommandResultsToRay()`), which makes another **POST** to the Ray server (same endpoint family) with `formatMessageWithResults(...)`.
+  6. Expect a **follow-up webhook** from Ray which may contain:
+     - Final response (no more tools) → Branch B
+     - **More command_calls** → Branch A repeats (multi-round execution)
 - **Branch B – No tools**:
   - Immediately post the **final** message to the webview:
     ```js
@@ -104,7 +109,8 @@ This doc maps the full path of a user message from the webview UI → extension 
   - Handlers under `out/commands/handlers/…`
   - FS ops under `out/commands/commandMethods/fs/…`
   - Diagnostics under `out/commands/commandMethods/diagnostics/…`
-- It builds **user-friendly progress labels** (e.g., “Reading file”, “Searching ...”), aggregates structured results, and returns them to the loop for posting back to Ray.
+- It builds **user-friendly progress labels** (e.g., "Reading file", "Searching ..."), aggregates structured results, and returns them to the loop for posting back to Ray.
+- **Race Condition Fix**: `isExecutingTools` flag is reset to `false` immediately after tool execution completes but BEFORE sending results to Ray, allowing follow-up command rounds to execute without blocking.
 
 > Code refs: `out/extension_utils/commandExecutor.js`, `out/commands/handlers/*`, `out/commands/commandMethods/*`.
 
@@ -189,8 +195,11 @@ Change via `out/config.js` (or corresponding `src/config.ts`).
 1. Confirm webhook hit → `RayResponseHandler.handleRayPostResponse CALLED` in logs.
 2. Right after that, add a log around `currentPanel.webview.postMessage({ type: "rayResponse", … })` with the **string length** of `content`.
 3. In **Webview DevTools**, verify a listener updates UI on `type: "rayResponse"`.
-4. If tools are present, ensure the **final** follow-up webhook is received and posted too.
+4. **Multi-round execution**: If tools are present, watch for multiple execution rounds:
+   - First round: `[XXXXXX] executeCommandCallsAndSendResults CALLED` with `isExecutingTools: false`
+   - Follow-up: `[YYYYYY] executeCommandCallsAndSendResults CALLED` with `isExecutingTools: false` (should NOT show "Tools already executing")
 5. Watch for duplicate-skip: the `processedResponses` Set hashes the **entire** webhook JSON. If the server retries with the same body, a second UI post will be skipped.
+6. **Critical**: Look for absence of "Tools already executing, skipping duplicate execution" errors in follow-up rounds.
 
 ---
 

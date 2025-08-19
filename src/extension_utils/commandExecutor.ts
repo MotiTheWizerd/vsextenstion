@@ -24,24 +24,39 @@ export class CommandExecutor {
     content: string,
     commandCalls: any[],
   ): Promise<void> {
-    console.log("[RayDaemon] *** executeCommandCallsAndSendResults CALLED ***");
+    const executionId = Date.now().toString().slice(-6);
+    console.log(
+      `[RayDaemon] *** executeCommandCallsAndSendResults CALLED [${executionId}] ***`,
+    );
+    console.log(
+      `[RayDaemon] [${executionId}] Current isExecutingTools state: ${this.isExecutingTools}`,
+    );
+    console.log(
+      `[RayDaemon] [${executionId}] CommandCalls to execute: ${commandCalls.length}`,
+    );
 
     if (!Array.isArray(commandCalls) || commandCalls.length === 0) {
-      console.log("[RayDaemon] No command calls to execute");
+      console.log(`[RayDaemon] [${executionId}] No command calls to execute`);
       return;
     }
 
     if (this.isExecutingTools) {
       console.log(
-        "[RayDaemon] Tools already executing, skipping duplicate execution",
+        `[RayDaemon] [${executionId}] RACE CONDITION: Tools already executing, skipping duplicate execution`,
+      );
+      console.log(
+        `[RayDaemon] [${executionId}] CRITICAL: This blocks follow-up commands - should be false here!`,
       );
       return;
     }
 
+    console.log(
+      `[RayDaemon] [${executionId}] Setting isExecutingTools = true and starting execution`,
+    );
     this.isExecutingTools = true;
     setActiveToolExecution(true);
     logInfo(
-      "[RayDaemon] Starting tool execution for " +
+      `[RayDaemon] [${executionId}] Starting tool execution for ` +
         commandCalls.length +
         " commands",
     );
@@ -60,18 +75,44 @@ export class CommandExecutor {
       await showFinalStatus(toolNames, results);
 
       console.log(
-        "[RayDaemon] Tool execution completed, sending results to Ray",
+        `[RayDaemon] [${executionId}] Tool execution completed, resetting isExecutingTools BEFORE sending results to Ray`,
       );
+
+      // Reset isExecutingTools BEFORE sending results to prevent race condition
+      // This is critical because sendResultsToRay() may trigger follow-up responses
+      // that contain more command_calls, which need to be able to execute
+      this.isExecutingTools = false;
+      console.log(
+        `[RayDaemon] [${executionId}] isExecutingTools reset to false, now sending results to Ray`,
+      );
+
       await sendResultsToRay(content, results);
-      logInfo("[RayDaemon] Results sent to Ray successfully");
+      console.log(
+        `[RayDaemon] [${executionId}] sendResultsToRay completed - any follow-ups should have been processed`,
+      );
+      logInfo(`[RayDaemon] [${executionId}] Results sent to Ray successfully`);
     } catch (err) {
       console.error(
         "[RayDaemon] Error in executeCommandCallsAndSendResults:",
         err,
       );
+
+      // Reset isExecutingTools on error to prevent deadlock
+      console.log(
+        `[RayDaemon] [${executionId}] Resetting isExecutingTools on error to prevent deadlock`,
+      );
+      this.isExecutingTools = false;
+
       await handleExecutionError(content, err);
     } finally {
+      console.log(
+        `[RayDaemon] [${executionId}] FINALLY BLOCK: Ensuring isExecutingTools = false`,
+      );
+      // Ensure isExecutingTools is false (should already be false from success/error paths)
       this.isExecutingTools = false;
+      console.log(
+        `[RayDaemon] [${executionId}] FINALLY BLOCK: isExecutingTools is now: ${this.isExecutingTools}`,
+      );
       // Note: We don't reset the activeToolExecution flag here because
       // it needs to stay active until Ray's follow-up response is processed
       this.fileManager.clearOldBackups();

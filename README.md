@@ -111,10 +111,12 @@ This extension contributes the following settings:
 
 ### Message Flow
 ```
-Webview ↔ Extension ↔ VS Code API
-   ↓         ↓           ↓
-File Utils → Commands → File System
+User Message → Ray API → Tool Execution → Results → Ray Follow-up → More Tools → Completion
+     ↓             ↓           ↓              ↓            ↓             ↓           ↓
+  Webview ↔ Extension ↔ CommandExecutor → sendResults → processResponse → Execute → UI Update
 ```
+
+**Multi-Round Execution**: Ray can send follow-up responses with additional commands, creating iterative workflows that complete complex tasks through multiple execution rounds.
 
 ## Known Issues
 
@@ -156,6 +158,25 @@ pnpm run test
 ```
 
 ## Release Notes
+
+### 1.2.2 - Critical Race Condition Fix & Multi-Round Tool Execution
+
+**Critical Fixes:**
+- 🚨 **Race Condition Fix**: Fixed critical bug where multi-round tool execution would fail with "Tools already executing, skipping duplicate execution"
+- 🔄 **Multi-Round Tool Execution**: Ray can now send follow-up responses with additional command calls that execute successfully
+- ⚡ **Infinite Loop Prevention**: Eliminated infinite loops where Ray would wait indefinitely for results that never came
+- 🛠️ **Robust Workflow Support**: Complex workflows with multiple command rounds now complete successfully
+
+**Technical Improvements:**
+- **Execution State Management**: Fixed race condition in `CommandExecutor` by resetting `isExecutingTools` flag before sending results to Ray
+- **Follow-up Response Handling**: Enhanced processing of Ray's follow-up responses containing additional commands
+- **Tool Status UI**: Multi-round executions now properly display progress for all command rounds
+- **Error Recovery**: Improved error handling to prevent deadlocks in tool execution state
+
+**Examples of Fixed Workflows:**
+- "Fix syntax errors in my CSS and JS files" - now completes all fix rounds
+- "Analyze my codebase and create documentation" - multi-step operations work end-to-end
+- "Refactor this code and add error handling" - iterative improvements complete successfully
 
 ### 1.2.1 - Improved Command Grouping & Status Messages
 
@@ -204,8 +225,27 @@ pnpm run test
 
 **Features:**
 - Basic RayDaemon functionality
-- VS Code extension framework
+- VS Code extension framework  
 - Command execution system
+
+## Known Issues & Troubleshooting
+
+### Multi-Round Tool Execution
+If you experience issues with complex workflows that involve multiple command rounds:
+
+1. **Check Console Logs**: Look for "Tools already executing" errors (should not appear in v1.2.2+)
+2. **Verify Completion**: Ensure all command rounds complete with proper status messages
+3. **Monitor Progress**: Tool status UI should show progress for all execution rounds
+
+### Performance with Large Operations
+- **Large Files**: Operations on files >10MB may show slower progress
+- **Batch Operations**: Multiple file operations are processed efficiently in batches
+- **Memory Management**: Automatic cleanup prevents memory issues during long sessions
+
+### Error Recovery
+- **Failed Commands**: Individual command failures don't stop entire workflows
+- **Network Issues**: Connection problems are handled gracefully with retry mechanisms
+- **State Recovery**: Extension maintains consistent state even after errors
 
 ---
 

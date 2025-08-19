@@ -1,4 +1,6 @@
 // Configuration for RayDaemon API integration
+import { SessionManager } from "./utils/sessionManager";
+
 export const config = {
   // Ray's main API endpoint - where all messages go (both user messages and command results)
   apiEndpoint: "http://localhost:8000/api/vscode_user_message",
@@ -22,23 +24,45 @@ export const config = {
   },
 
   // Customize the request body format for your API - match server expectations
-  formatMessage: (message: string) => ({
-    message: message,
-    model: null,
-    thinking_budget: 0,
-    include_system: true,
-    use_memory: true,
-    max_memory_messages: 10
-  }),
+  formatMessage: (message: string) => {
+    const sessionManager = SessionManager.getInstance();
+    const sessionInfo = sessionManager.getSessionInfo();
+
+    // Log user login status for debugging
+    if (!sessionManager.isUserLoggedIn()) {
+      console.warn(
+        "[Config] User not logged in - using default user_id. User should login to server for proper user identification.",
+      );
+    }
+
+    return {
+      message: message,
+      model: null,
+      project_id: sessionInfo.projectId,
+      chat_id: sessionInfo.chatId,
+      user_id: sessionInfo.userId,
+    };
+  },
 
   // Format message with command results populated - match server expectations
-  formatMessageWithResults: (message: string, commandResults: any[]) => ({
-    message: message,
-    command_results: commandResults,
-    model: null,
-    thinking_budget: 0,
-    include_system: true,
-    use_memory: true,
-    max_memory_messages: 10
-  }),
+  formatMessageWithResults: (message: string, commandResults: any[]) => {
+    const sessionManager = SessionManager.getInstance();
+    const sessionInfo = sessionManager.getSessionInfo();
+
+    // Log user login status for debugging
+    if (!sessionManager.isUserLoggedIn()) {
+      console.warn(
+        "[Config] User not logged in - using default user_id. Command results sent with default user identification.",
+      );
+    }
+
+    return {
+      message: message,
+      command_results: commandResults,
+      model: null,
+      project_id: sessionInfo.projectId,
+      chat_id: sessionInfo.chatId,
+      user_id: sessionInfo.userId,
+    };
+  },
 };

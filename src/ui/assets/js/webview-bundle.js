@@ -45,13 +45,9 @@ class FileUtils {
     if (!results || results.length === 0) {
       return false;
     }
-    // Simple check for file-like results
-    return results.some(
-      (result) =>
-        result &&
-        typeof result === "object" &&
-        (result.filePath || result.path || result.file),
-    );
+    // Use extractFileList for accurate file detection
+    const files = this.extractFileList(results);
+    return files && files.length > 0;
   }
 
   extractFileList(results) {
@@ -60,19 +56,295 @@ class FileUtils {
     }
 
     const files = [];
+    const processedPaths = new Set();
+
     results.forEach((result) => {
       if (result && typeof result === "object") {
+        // For file modification commands, extract file path from arguments
+        if (
+          result.ok &&
+          ["write", "append", "replace", "edit_file", "create_file"].includes(
+            result.command,
+          )
+        ) {
+          const args = result.args || [];
+          if (args.length > 0 && typeof args[0] === "string") {
+            let filePath = args[0].trim();
+            // Clean the file path
+            filePath = filePath.replace(/^["']|["']$/g, "");
+            filePath = filePath.replace(/^\*\*|\*\*$/g, "");
+            filePath = filePath.replace(/^`|`$/g, "");
+
+            if (
+              this.isValidFilePath(filePath) &&
+              !processedPaths.has(filePath)
+            ) {
+              const absolutePath = this.getAbsolutePath(filePath);
+              files.push({
+                name: filePath.split(/[\/\\]/).pop() || filePath,
+                path: filePath,
+                absolutePath: absolutePath,
+                type: "file",
+                icon: "📄",
+                isModified: true,
+              });
+              processedPaths.add(filePath);
+            }
+          }
+        }
+
+        // Handle direct file path properties
         if (result.filePath) {
-          files.push({ path: result.filePath });
+          if (!processedPaths.has(result.filePath)) {
+            const absolutePath = this.getAbsolutePath(result.filePath);
+            files.push({
+              path: result.filePath,
+              absolutePath: absolutePath,
+              name: result.filePath.split(/[\/\\]/).pop() || result.filePath,
+              type: "file",
+              icon: "📄",
+            });
+            processedPaths.add(result.filePath);
+          }
         } else if (result.path) {
-          files.push({ path: result.path });
+          if (!processedPaths.has(result.path)) {
+            const absolutePath = this.getAbsolutePath(result.path);
+            files.push({
+              path: result.path,
+              absolutePath: absolutePath,
+              name: result.path.split(/[\/\\]/).pop() || result.path,
+              type: "file",
+              icon: "📄",
+            });
+            processedPaths.add(result.path);
+          }
         } else if (result.file) {
-          files.push({ path: result.file });
+          if (!processedPaths.has(result.file)) {
+            const absolutePath = this.getAbsolutePath(result.file);
+            files.push({
+              path: result.file,
+              absolutePath: absolutePath,
+              name: result.file.split(/[\/\\]/).pop() || result.file,
+              type: "file",
+              icon: "📄",
+            });
+            processedPaths.add(result.file);
+          }
+        }
+
+        // Handle JSON string output (e.g., from list_directory)
+        if (result.output && typeof result.output === "string") {
+          try {
+            const parsed = JSON.parse(result.output);
+            if (
+              parsed.type === "fileList" &&
+              parsed.files &&
+              Array.isArray(parsed.files)
+            ) {
+              // Extract files from list_directory output
+              parsed.files.forEach((file) => {
+                if (file.path) {
+                  if (!processedPaths.has(file.path)) {
+                    const absolutePath = this.getAbsolutePath(file.path);
+                    files.push({
+                      path: file.path,
+                      absolutePath: absolutePath,
+                      name:
+                        file.name ||
+                        file.path.split(/[\/\\]/).pop() ||
+                        file.path,
+                      type: file.type || "file",
+                      icon:
+                        file.icon || (file.type === "directory" ? "📁" : "📄"),
+                    });
+                    processedPaths.add(file.path);
+                  }
+                }
+              });
+            }
+          } catch (e) {
+            // Not JSON or invalid format, ignore
+          }
         }
       }
     });
 
     return files;
+  }
+
+  getAbsolutePath(relativePath) {
+    // If already absolute, return as is
+    if (relativePath.match(/^[A-Z]:\\/i) || relativePath.startsWith("/")) {
+      return relativePath;
+    }
+
+    // Get workspace root from VS Code (this will be set by the extension)
+    const workspaceRoot =
+      window.workspaceRoot || "C:\\Users\\Moti Elmakyes\\raydaemon";
+
+    // Combine workspace root with relative path
+    const separator = workspaceRoot.includes("\\") ? "\\" : "/";
+    return (
+      workspaceRoot + separator + relativePath.replace(/[\/\\]/g, separator)
+    );
+  }
+
+  isValidFilePath(path) {
+    if (!path || typeof path !== "string") {
+      return false;
+    }
+
+    // Clean the path
+    path = path.trim();
+
+    // Skip empty paths
+    if (!path) {
+      return false;
+    }
+
+    // Skip obvious non-file content
+    if (this.isNonFileContent(path)) {
+      return false;
+    }
+
+    // Skip HTML content
+    if (this.isHtmlContent(path)) {
+      return false;
+    }
+
+    // Basic file path validation
+    if (path.length > 500) {
+      return false; // Too long to be a reasonable file path
+    }
+
+    // Must contain at least one valid path character
+    if (!/[a-zA-Z0-9._\-\/\\]/.test(path)) {
+      return false;
+    }
+
+    // Skip lines that are clearly not file paths
+    if (this.shouldSkipLine(path)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  cleanAndValidateFilePath(input) {
+    if (!input || typeof input !== "string") {
+      return null;
+    }
+
+    let path = input.trim();
+
+    // Remove common prefixes and suffixes
+    path = path.replace(/^["']|["']$/g, ""); // Remove quotes
+    path = path.replace(/^\*\*|\*\*$/g, ""); // Remove markdown bold
+    path = path.replace(/^`|`$/g, ""); // Remove backticks
+    path = path.replace(/^File:\s*/i, ""); // Remove "File:" prefix
+    path = path.replace(/^Path:\s*/i, ""); // Remove "Path:" prefix
+
+    if (this.isValidFilePath(path)) {
+      return path;
+    }
+
+    return null;
+  }
+
+  shouldSkipLine(line) {
+    const skipPatterns = [
+      /^(reading|writing|creating|updating|processing|analyzing)/i,
+      /^(file|directory|folder|path):/i,
+      /^(success|error|warning|info):/i,
+      /^\d+\s+(file|directory|folder)/i,
+      /^(total|found|showing|displaying)/i,
+      /^(modified|created|updated|deleted)\s+at/i,
+      /^(bytes|kb|mb|gb)/i,
+      /^(last modified|size|type):/i,
+      /^-{3,}/, // Separator lines
+      /^={3,}/, // Separator lines
+      /^\s*$/, // Empty lines
+    ];
+
+    return skipPatterns.some((pattern) => pattern.test(line));
+  }
+
+  isHtmlContent(text) {
+    // Check for HTML tags
+    const htmlTagPattern = /<[^>]+>/;
+    if (htmlTagPattern.test(text)) {
+      return true;
+    }
+
+    // Check for HTML entities
+    const htmlEntityPattern = /&[a-zA-Z]+;|&#\d+;/;
+    if (htmlEntityPattern.test(text)) {
+      return true;
+    }
+
+    // Check for DOCTYPE declarations
+    if (/<!DOCTYPE/i.test(text)) {
+      return true;
+    }
+
+    // Check for common HTML structures
+    const htmlStructures = [
+      /<html/i,
+      /<head/i,
+      /<body/i,
+      /<div/i,
+      /<span/i,
+      /<script/i,
+      /<style/i,
+    ];
+
+    return htmlStructures.some((pattern) => pattern.test(text));
+  }
+
+  isNonFileContent(text) {
+    // Check for URLs
+    if (/^https?:\/\//.test(text) || /^ftp:\/\//.test(text)) {
+      return true;
+    }
+
+    // Check for email addresses
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+      return true;
+    }
+
+    // Check for obvious log entries
+    if (/^\d{4}-\d{2}-\d{2}/.test(text) || /^\[\d{4}-\d{2}-\d{2}/.test(text)) {
+      return true;
+    }
+
+    // Check for command output patterns
+    const commandPatterns = [
+      /^npm (install|run|start|build)/,
+      /^node /,
+      /^git (add|commit|push|pull)/,
+      /^(sudo|chmod|chown|ls|cd|mkdir)/,
+      /^(echo|cat|grep|find|which)/,
+    ];
+
+    if (commandPatterns.some((pattern) => pattern.test(text))) {
+      return true;
+    }
+
+    // Check for error messages
+    const errorPatterns = [
+      /error:/i,
+      /exception:/i,
+      /failed:/i,
+      /cannot find/i,
+      /permission denied/i,
+      /no such file/i,
+    ];
+
+    if (errorPatterns.some((pattern) => pattern.test(text))) {
+      return true;
+    }
+
+    return false;
   }
 
   createFileDropdown(results, totalCount) {
@@ -81,10 +353,27 @@ class FileUtils {
       return "";
     }
 
-    let html = '<div class="tool-dropdown" style="display: none;">';
+    let html = '<div class="tool-dropdown">';
+    html += '<div class="tool-file-list">';
     files.forEach((file) => {
-      html += `<div class="tool-file-item" data-file-path="${file.path}">${file.path}</div>`;
+      const fileName =
+        file.name || (file.path ? file.path.split(/[\/\\]/).pop() : "Unknown");
+      const displayPath = file.path || ""; // Relative path for display
+      const absolutePath = file.absolutePath || file.path || ""; // Absolute path for opening
+      const fileIcon = file.icon || "📄";
+
+      html += `
+        <div class="tool-file-item clickable" data-file-path="${absolutePath || file.path}">
+          <div class="tool-file-content">
+            <div class="tool-file-icon">${fileIcon}</div>
+            <div class="tool-file-info">
+              <div class="tool-file-name">${fileName}</div>
+              <div class="tool-file-path">${displayPath}</div>
+            </div>
+          </div>
+        </div>`;
     });
+    html += "</div>";
     html += "</div>";
 
     return html;
@@ -92,9 +381,22 @@ class FileUtils {
 
   toggleToolDropdown(messageDiv) {
     const dropdown = messageDiv.querySelector(".tool-dropdown");
+    const expandableBadge = messageDiv.querySelector(".tool-count.expandable");
+
     if (dropdown) {
-      const isVisible = dropdown.style.display !== "none";
-      dropdown.style.display = isVisible ? "none" : "block";
+      const isExpanded = dropdown.classList.contains("expanded");
+
+      if (isExpanded) {
+        dropdown.classList.remove("expanded");
+        if (expandableBadge) {
+          expandableBadge.classList.remove("expanded");
+        }
+      } else {
+        dropdown.classList.add("expanded");
+        if (expandableBadge) {
+          expandableBadge.classList.add("expanded");
+        }
+      }
     }
   }
 }
@@ -647,13 +949,17 @@ class MessageHandler {
       const mainTool = tools && tools.length > 0 ? tools[0] : "";
       const mainIcon = getToolIcon(mainTool);
 
-      // Set emoji based on status
-      let statusEmoji = "🛠️";
-      if (statusType === "starting") statusEmoji = "🚀";
-      else if (statusType === "working") statusEmoji = "⚙️";
-      else if (statusType === "completed") statusEmoji = "✅";
-      else if (statusType === "partial") statusEmoji = "⚠️";
-      else if (statusType === "failed") statusEmoji = "❌";
+      // Status emoji removed - using CSS-based tool icons only
+
+      // Check file count first for expandable logic
+      let shouldBeExpandable = false;
+      let actualFileCount = 0;
+      if (results && results.length > 0) {
+        const fileUtils = new FileUtils();
+        const extractedFiles = fileUtils.extractFileList(results);
+        actualFileCount = extractedFiles.length;
+        shouldBeExpandable = extractedFiles.length > 0; // Always expandable if any files to show (even 1 file)
+      }
 
       // Set title based on status
       let title = "";
@@ -673,14 +979,44 @@ class MessageHandler {
       // Create badge HTML if we have count info
       let badgeHTML = "";
       if (totalCount) {
+        // For file listing operations, show actual file count instead of command count
+        const isFileListingOperation =
+          tools &&
+          tools.some(
+            (tool) =>
+              tool.toLowerCase().includes("list") ||
+              tool.toLowerCase().includes("directory") ||
+              tool.toLowerCase().includes("ls"),
+          );
+
         if (statusType === "starting" || statusType === "working") {
           badgeHTML = `<span class="tool-status-badge">${currentIndex || 1}/${totalCount}</span>`;
         } else if (statusType === "completed" && successCount !== undefined) {
-          badgeHTML = `<span class="tool-status-badge">${successCount}/${totalCount} successful</span>`;
+          const displayCount =
+            isFileListingOperation && actualFileCount > 0
+              ? actualFileCount
+              : successCount;
+          const displayTotal =
+            isFileListingOperation && actualFileCount > 0
+              ? actualFileCount
+              : totalCount;
+          badgeHTML = shouldBeExpandable
+            ? `<span class="tool-status-badge tool-count expandable" data-expandable="true">${displayCount}</span>`
+            : `<span class="tool-status-badge">${displayCount}/${displayTotal}</span>`;
         } else if (statusType === "partial") {
-          badgeHTML = `<span class="tool-status-badge">${successCount}/${totalCount} successful</span>`;
+          const displayCount =
+            isFileListingOperation && actualFileCount > 0
+              ? actualFileCount
+              : successCount;
+          const displayTotal =
+            isFileListingOperation && actualFileCount > 0
+              ? actualFileCount
+              : totalCount;
+          badgeHTML = shouldBeExpandable
+            ? `<span class="tool-status-badge tool-count expandable" data-expandable="true">${displayCount}</span>`
+            : `<span class="tool-status-badge">${displayCount}/${displayTotal}</span>`;
         } else if (statusType === "failed") {
-          badgeHTML = `<span class="tool-status-badge">${failedCount || totalCount}/${totalCount} failed</span>`;
+          badgeHTML = `<span class="tool-status-badge">${failedCount || totalCount}/${totalCount}</span>`;
         }
       }
 
@@ -691,54 +1027,63 @@ class MessageHandler {
       } else if (statusType === "working") {
         description = `Processing ${currentIndex}/${totalCount}`;
       } else if (statusType === "completed") {
-        description = "All operations completed successfully";
+        description = "";
       } else if (statusType === "partial") {
-        description = `${successCount} succeeded, ${failedCount} failed`;
+        description = "";
       } else if (statusType === "failed") {
         description = "Operation failed";
       }
 
-      // Assemble the HTML
+      // Create dropdown HTML if we have results
+      let dropdownHTML = "";
+      if (results && results.length > 0 && shouldBeExpandable) {
+        const fileUtils = new FileUtils();
+        dropdownHTML = fileUtils.createFileDropdown(results, totalCount);
+      }
+
+      // Assemble the HTML - One-line layout with dropdown
       element.innerHTML = `
         <div class="tool-status-header">
-          <div class="tool-status-icon ${mainIcon}">${statusEmoji}</div>
+          <div class="tool-status-icon ${mainIcon}"></div>
           <div class="tool-status-content">
             <div class="tool-status-title">${title}</div>
             <div class="tool-status-description">${description}</div>
-            ${badgeHTML ? `<div class="tool-status-meta">${badgeHTML}</div>` : ""}
           </div>
+          ${badgeHTML ? `<div class="tool-status-meta">${badgeHTML}</div>` : ""}
         </div>
-        ${progressHTML}
-        ${
-          tools && tools.length > 1
-            ? `
-          <div class="tool-details-toggle">View details (${tools.length} operations)</div>
-          <div class="tool-details">
-            ${tools
-              .map(
-                (tool, i) => `
-              <div class="tool-detail-item">
-                <span class="tool-icon ${getToolIcon(tool)}"></span> ${tool}
-              </div>
-            `,
-              )
-              .join("")}
-          </div>
-        `
-            : ""
-        }
+        ${dropdownHTML}
       `;
 
-      // Add click handler for the details toggle if it exists
-      const detailsToggle = element.querySelector(".tool-details-toggle");
-      if (detailsToggle) {
-        detailsToggle.addEventListener("click", () => {
-          element.classList.toggle("expanded");
-          detailsToggle.textContent = element.classList.contains("expanded")
-            ? `Hide details (${tools.length} operations)`
-            : `View details (${tools.length} operations)`;
+      // Add click handler for expandable badges (dropdown toggle)
+      const expandableBadge = element.querySelector(".tool-count.expandable");
+      if (expandableBadge) {
+        expandableBadge.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const fileUtils = new FileUtils();
+          fileUtils.toggleToolDropdown(element);
         });
       }
+
+      // Add click handlers for file items to open in editor
+      const fileItems = element.querySelectorAll(".tool-file-item.clickable");
+      fileItems.forEach((fileItem) => {
+        fileItem.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const filePath = fileItem.getAttribute("data-file-path");
+          if (filePath) {
+            console.log("[RayDaemon] Opening file:", filePath);
+            // Send message to extension to open the file
+            if (this.chatUI && this.chatUI.postMessage) {
+              this.chatUI.postMessage({
+                command: "openFile",
+                filePath: filePath,
+              });
+            }
+          }
+        });
+      });
 
       return element;
     };

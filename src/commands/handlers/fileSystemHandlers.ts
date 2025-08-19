@@ -41,7 +41,7 @@ export const fileSystemHandlers: CommandRegistry = {
             if (
               parsedOptions.encoding &&
               ["utf8", "base64", "hex"].includes(
-                parsedOptions.encoding.toLowerCase()
+                parsedOptions.encoding.toLowerCase(),
               )
             ) {
               options.encoding =
@@ -60,7 +60,7 @@ export const fileSystemHandlers: CommandRegistry = {
                   ? parseError.message
                   : String(parseError)
               }`,
-              "EINVAL"
+              "EINVAL",
             );
           }
         } else {
@@ -92,7 +92,7 @@ export const fileSystemHandlers: CommandRegistry = {
           throw new CommandError(
             `Failed to list files in ${dirPath}: ${error.message}`,
             error.code || "EUNKNOWN",
-            true
+            true,
           );
         }
         // Re-throw with proper typing
@@ -102,7 +102,7 @@ export const fileSystemHandlers: CommandRegistry = {
         throw new CommandError(
           `Unexpected error listing files: ${errorMessage}`,
           errorCode,
-          true
+          true,
         );
       }
     },
@@ -121,7 +121,7 @@ export const fileSystemHandlers: CommandRegistry = {
       }
 
       await writeFileSafe(file, content);
-      return `✅ Wrote ${file}`;
+      return `✅ File written successfully`;
     },
     description:
       "Write (overwrite) a file with content (supports BASE64: prefix for encoded content)",
@@ -139,7 +139,7 @@ export const fileSystemHandlers: CommandRegistry = {
       }
 
       await appendToFile(file, content);
-      return `✅ Appended to ${file}`;
+      return `✅ Content appended successfully`;
     },
     description:
       "Append content to a file (supports BASE64: prefix for encoded content)",
@@ -186,7 +186,7 @@ export const fileSystemHandlers: CommandRegistry = {
       const count = await replaceInFile(file, search, replacement, {
         global: true,
       });
-      return `🔁 Replaced ${count} occurrence(s) in ${file}`;
+      return `🔁 Replaced ${count} occurrence(s) successfully`;
     },
     description:
       "Find & replace in a file (literal, supports BASE64: prefix for replacement content)",

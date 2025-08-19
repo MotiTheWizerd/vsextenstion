@@ -1,16 +1,23 @@
-
-import { IconProvider } from './iconProvider.js';
+import { IconProvider } from "./iconProvider.js";
 
 export class FileItemRenderer {
-    static render(fileObj) {
-        const fileName = fileObj.name;
-        const filePath = fileObj.path;
-        const parentPath = filePath !== fileName 
-          ? filePath.substring(0, filePath.length - fileName.length - 1)
-          : "";
+  static render(fileObj) {
+    const fileName = fileObj.name;
+    const filePath = fileObj.path;
 
-        const diffIcon = fileObj.isModified
-          ? `
+    // Ensure fileName is actually just the filename, not the full path
+    const actualFileName =
+      fileName.includes("/") || fileName.includes("\\")
+        ? fileName.split(/[\/\\]/).pop()
+        : fileName;
+
+    const parentPath =
+      filePath !== actualFileName
+        ? filePath.substring(0, filePath.length - actualFileName.length - 1)
+        : "";
+
+    const diffIcon = fileObj.isModified
+      ? `
           <div class="tool-file-diff" data-file-path="${filePath
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;")}" title="Show diff">
@@ -25,37 +32,39 @@ export class FileItemRenderer {
             </svg>
           </div>
         `
-          : "";
+      : "";
 
-        // Create metadata display
-        const metadata = [];
-        if (fileObj.matchCount) {
-          metadata.push(`${fileObj.matchCount} match${fileObj.matchCount > 1 ? 'es' : ''}`);
-        }
-        if (fileObj.sizeFormatted) {
-          metadata.push(fileObj.sizeFormatted);
-        }
-        if (fileObj.modifiedFormatted) {
-          metadata.push(fileObj.modifiedFormatted);
-        }
-        const metadataText = metadata.length > 0 ? ` (${metadata.join(', ')})` : '';
+    // Create metadata display
+    const metadata = [];
+    if (fileObj.matchCount) {
+      metadata.push(
+        `${fileObj.matchCount} match${fileObj.matchCount > 1 ? "es" : ""}`,
+      );
+    }
+    if (fileObj.sizeFormatted) {
+      metadata.push(fileObj.sizeFormatted);
+    }
+    if (fileObj.modifiedFormatted) {
+      metadata.push(fileObj.modifiedFormatted);
+    }
+    const metadataText = metadata.length > 0 ? ` (${metadata.join(", ")})` : "";
 
-        // Escape HTML attributes and content
-        const escapedPath = filePath.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-        const escapedFileName = fileName
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        const escapedParentPath = parentPath
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        const escapedMetadata = metadataText
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
+    // Escape HTML attributes and content
+    const escapedPath = filePath.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const escapedFileName = actualFileName
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const escapedParentPath = parentPath
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const escapedMetadata = metadataText
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
 
-        return `
+    const result = `
         <div class="tool-file-item" data-file-path="${escapedPath}">
           <div class="tool-file-content">
-            <div class="tool-file-icon">${IconProvider.getFileIcon(fileObj.name)}</div>
+            <div class="tool-file-icon">${IconProvider.getFileIcon(actualFileName)}</div>
             <div class="tool-file-info">
               <div class="tool-file-name">${escapedFileName}${escapedMetadata}</div>
               ${
@@ -68,5 +77,7 @@ export class FileItemRenderer {
           ${diffIcon}
         </div>
       `;
-    }
+
+    return result;
+  }
 }

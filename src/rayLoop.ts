@@ -217,6 +217,15 @@ export async function sendCommandResultsToRay(
         // This ensures that the next round of command calls can be processed
         await processRayResponse(response.data);
 
+        // Reset the active tool execution flag after successful follow-up response processing
+        // This is critical to allow subsequent user messages to work properly
+        if (!hasCommandCalls) {
+          console.log(
+            `[RayDaemon] Resetting activeToolExecution flag after successful completion`,
+          );
+          setActiveToolExecution(false);
+        }
+
         console.log(`[RayDaemon] Follow-up response processed successfully`);
         console.log("=== SEND COMMAND RESULTS TO RAY END ===");
       } else {

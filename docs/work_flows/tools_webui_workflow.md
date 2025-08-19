@@ -4,26 +4,53 @@
 
 This document outlines the complete workflow for developing and maintaining the tool call display system in the RayDaemon chat WebUI. This system provides visual feedback when Ray executes commands, showing starting, working, and completion states with modern design and user-friendly information.
 
+**Important**: As of v1.2.2, this workflow supports multi-round tool execution where Ray can send follow-up responses with additional command calls, all handled without race conditions.
+
+**Important**: As of v1.2.2, this workflow supports multi-round tool execution where Ray can send follow-up responses with additional command calls, all handled without race conditions.
+
 ## Architecture Overview
 
 ### Components Involved
 
 1. **Backend (Extension Side)**
    - `toolStatusNotifier.ts` - Sends tool status updates to WebUI
-   - `commandExecutor.ts` - Orchestrates tool execution
+   - `commandExecutor.ts` - Orchestrates tool execution with race condition prevention
    - `commandProcessor.ts` - Processes individual commands
+   - `rayLoop.ts` - Handles multi-round execution and follow-up responses
 
 2. **Frontend (WebUI Side)**
-   - `webview-bundle.js` - Main message handler and UI logic
+   - `webview-bundle.js` - Main message handler and UI logic for multi-round execution
    - `tool-status.css` - Styling for tool status messages
    - `tool-icons.css` - Icon definitions for different tool types
 
 3. **Message Flow**
    - Extension → WebView via `postMessage`
-   - WebView processes and displays tool status
+   - WebView processes and displays tool status for all execution rounds
    - Automatic cleanup of transient messages
+   - **Multi-round support**: Follow-up command rounds display properly without interference
+
+### Multi-Round Execution Flow (v1.2.2+)
+```
+User Request → Tools Execute (Round 1) → Results → Ray Follow-up → Tools Execute (Round 2) → Final Completion
+     ↓              ↓                      ↓           ↓                    ↓                      ↓
+  UI Status    UI Progress            UI Update   UI Progress         UI Progress           UI Complete
+```
 
 ## Development Workflow
+
+### Critical Race Condition Fix (v1.2.2)
+
+**Problem**: Multi-round tool execution was failing with "Tools already executing, skipping duplicate execution"
+
+**Solution**: Reset `isExecutingTools` flag BEFORE sending results to Ray in `commandExecutor.ts`:
+
+```typescript
+// Fixed race condition timing
+this.isExecutingTools = false;  // Reset BEFORE sending results
+await sendResultsToRay(content, results);  // Follow-ups can now execute
+```
+
+**Impact**: Tool status UI now properly displays progress for all execution rounds without blocking.
 
 ### 1. Adding New Tool Types
 
@@ -36,7 +63,7 @@ function getToolCategory(toolName: string): string {
   if (toolNameLower === "your_new_tool") {
     return "your_category";
   }
-  
+
   // Or add pattern matching
   if (toolNameLower.includes("your_pattern")) {
     return "your_category";
@@ -60,7 +87,7 @@ function getToolCategory(toolName: string): string {
 const getToolIcon = (toolName) => {
   // Add exact matching
   if (toolNameLower === "your_new_tool") return "tool-your-new-tool-icon";
-  
+
   // Or pattern matching in the fallback section
 }
 ```
@@ -260,13 +287,13 @@ setTimeout(() => {
 removeMessage(messageElement) {
   // Remove event listeners
   messageElement.removeEventListener('click', this.clickHandler);
-  
+
   // Remove from tracking arrays
   const index = this.activeToolStatusMessages.indexOf(messageElement);
   if (index > -1) {
     this.activeToolStatusMessages.splice(index, 1);
   }
-  
+
   // Remove from DOM
   messageElement.remove();
 }
@@ -285,20 +312,35 @@ removeMessage(messageElement) {
 }
 ```
 
-### 8. Adding New Message Types
+### 6. Adding New Message Types
 
 #### Backend Changes
 1. Update `toolStatusNotifier.ts` to send new status
 2. Add status to TypeScript interfaces
 3. Update command executor logic
+4. **Important**: Ensure new status types work with multi-round execution
 
 #### Frontend Changes
 1. Add CSS styles for new status
-2. Update JavaScript handler
+2. Update JavaScript handler with multi-round awareness
 3. Add icon mapping
-4. Test message lifecycle
+4. Test message lifecycle including follow-up rounds
+5. **Test multi-round scenarios** to ensure new status doesn't interfere with execution flow
 
-### 9. Debugging Tools
+### 11. Debugging Tools
+
+#### Multi-Round Execution Debugging (v1.2.2+)
+- **Execution ID Tracking**: Look for unique execution IDs in logs to track multi-round flows
+- **Race Condition Detection**: Monitor for absence of "Tools already executing" errors
+- **State Verification**: Check that `isExecutingTools` state is `false` for follow-up rounds
+
+```javascript
+// Example successful multi-round execution logs:
+[RayDaemon] [123456] executeCommandCallsAndSendResults CALLED
+[RayDaemon] [123456] Current isExecutingTools state: false
+[RayDaemon] [789012] executeCommandCallsAndSendResults CALLED  // Follow-up round
+[RayDaemon] [789012] Current isExecutingTools state: false     // Should be false!
+```
 
 #### Browser DevTools
 - Use React DevTools to inspect component state
@@ -318,8 +360,9 @@ if (localStorage.getItem('debug-tool-status')) {
 
 #### VSCode Output Panel
 - Check "RayDaemon" output channel for backend logs
-- Look for tool execution status messages
-- Monitor for error messages
+- Look for tool execution status messages across all execution rounds
+- Monitor for error messages and race condition indicators
+- Verify multi-round execution completion
 
 ### 10. Best Practices
 
@@ -343,27 +386,39 @@ if (localStorage.getItem('debug-tool-status')) {
 - Ensure color is not the only way to convey information
 - Test with screen readers
 
-### 11. Future Enhancements
+### 12. Future Enhancements
 
 #### Planned Features
 - [ ] Progress bars for long-running operations
-- [ ] Estimated time remaining
+- [ ] Estimated time remaining for multi-round executions
 - [ ] Detailed error information in expandable sections
-- [ ] Tool execution history
-- [ ] Performance metrics display
+- [ ] Tool execution history across all rounds
+- [ ] Performance metrics display for complex workflows
+- [ ] Multi-round execution visualization
 
 #### Extension Points
 - Plugin system for custom tool status renderers
-- Configurable status message templates
+- Configurable status message templates for different execution rounds
 - User preference for status detail level
+- Multi-round execution flow customization
 
-### 12. Version History
+#### Multi-Round Execution Improvements
+- [ ] Visual indicators for execution round progression
+- [ ] Collapsible execution round groups
+- [ ] Performance optimization for rapid follow-up rounds
+- [ ] Enhanced error recovery for partial multi-round failures
+
+### 13. Version History
 
 | Version | Changes | Date |
 |---------|---------|------|
 | 1.0 | Initial implementation with basic status messages | [Date] |
 | 2.0 | Enhanced design with modern CSS and lifecycle management | [Date] |
 | 2.1 | Added tool-specific icons and expandable details | [Date] |
+| 2.2 | **Critical race condition fix for multi-round tool execution** | 2024-12-19 |
+|     | - Fixed "Tools already executing" blocking follow-up commands |  |
+|     | - Added execution ID tracking for debugging multi-round flows |  |
+|     | - Enhanced UI support for complex multi-round workflows |  |
 
 ---
 
@@ -378,7 +433,7 @@ if (localStorage.getItem('debug-tool-status')) {
 ### Key Classes
 - `.tool-status` - Main status container
 - `.tool-status.starting` - Starting state
-- `.tool-status.working` - Working state  
+- `.tool-status.working` - Working state
 - `.tool-status.completed` - Success state
 - `.tool-status.failed` - Error state
 - `.tool-status.partial` - Mixed results state

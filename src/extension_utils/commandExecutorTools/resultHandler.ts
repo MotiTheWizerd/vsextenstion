@@ -6,6 +6,9 @@ export async function sendResultsToRay(
   results: any[],
 ): Promise<void> {
   console.log("[RayDaemon] sendResultsToRay called with content and results");
+  console.log(
+    "[RayDaemon] TIMING: About to send results to Ray and wait for follow-up",
+  );
 
   const commandResults = results.map((result) => ({
     command: result.command,
@@ -20,9 +23,18 @@ export async function sendResultsToRay(
     console.log(
       `[RayDaemon] Sending ${commandResults.length} command results back to Ray`,
     );
+    console.log(
+      "[RayDaemon] TIMING: Setting active tool execution before sending results",
+    );
     // Setting active tool execution before sending results
     setActiveToolExecution(true);
+    console.log(
+      "[RayDaemon] TIMING: Calling sendCommandResultsToRay - this may trigger follow-up",
+    );
     await sendCommandResultsToRay(content, commandResults);
+    console.log(
+      "[RayDaemon] TIMING: sendCommandResultsToRay completed - follow-up should be processed",
+    );
     logInfo(
       "[Ray][command_calls] Command results sent back to Ray successfully",
     );
@@ -53,8 +65,15 @@ export async function handleExecutionError(
 
   try {
     console.log("[RayDaemon] Sending error results back to Ray");
+    console.log(
+      "[RayDaemon] TIMING: Setting active tool execution for error case",
+    );
     setActiveToolExecution(true);
+    console.log(
+      "[RayDaemon] TIMING: Calling sendCommandResultsToRay for errors",
+    );
     await sendCommandResultsToRay(content, errorResults);
+    console.log("[RayDaemon] TIMING: Error sendCommandResultsToRay completed");
     logInfo("[Ray][command_calls] Error results sent back to Ray");
   } catch (rayError) {
     logError(

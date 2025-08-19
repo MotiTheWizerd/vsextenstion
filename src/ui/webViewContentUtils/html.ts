@@ -8,7 +8,12 @@ import { escapeHtml } from "./utils";
  * @param jsContent - The JavaScript content
  * @returns The HTML content
  */
-export function getHtml(config: Required<WebviewConfig>, cssContent: string, jsContent: string): string {
+export function getHtml(
+  config: Required<WebviewConfig>,
+  cssContent: string,
+  jsContent: string,
+  workspaceRoot: string = "",
+): string {
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
@@ -26,13 +31,13 @@ export function getHtml(config: Required<WebviewConfig>, cssContent: string, jsC
         <div class="custom-panel-actions">
           <button class="custom-panel-action codicon-gear" title="Settings"></button>
           <button class="custom-panel-action codicon-ellipsis" title="More Actions"></button>
-        
+
         </div>
       </div>
-      
+
       <div class="chat-container">
         <div id="chatMessages" class="chat-messages"></div>
-        
+
         <div id="typingIndicator" class="typing-indicator">
           RayDaemon is thinking
           <div class="typing-dots">
@@ -41,7 +46,7 @@ export function getHtml(config: Required<WebviewConfig>, cssContent: string, jsC
             <span></span>
           </div>
         </div>
-        
+
         ${
           config.showChatInput
             ? `
@@ -54,14 +59,14 @@ export function getHtml(config: Required<WebviewConfig>, cssContent: string, jsC
             <div class="input-main">
               <!-- Row 2: Text Input (Full Width) -->
               <div class="input-text-row">
-                <textarea 
-                  id="chatInput" 
-                  placeholder="Plan, search, build anything" 
+                <textarea
+                  id="chatInput"
+                  placeholder="Plan, search, build anything"
                   rows="1"
                   ${!config.showChatInput ? "disabled" : ""}
                 ></textarea>
               </div>
-              
+
               <!-- Row 3: Controls (Agent, Auto, Icons) -->
               <div class="input-controls-row">
                 <div class="input-controls">
@@ -120,7 +125,7 @@ export function getHtml(config: Required<WebviewConfig>, cssContent: string, jsC
             : ""
         }
       </div>
-      
+
       ${
         config.showStatusBar
           ? `
@@ -133,11 +138,14 @@ export function getHtml(config: Required<WebviewConfig>, cssContent: string, jsC
       `
           : ""
       }
-      
+
       <script>
         // Expose VS Code API
         const vscode = acquireVsCodeApi();
-        
+
+        // Inject workspace root as global variable
+        window.workspaceRoot = "${workspaceRoot.replace(/\\/g, "\\\\")}";
+
         // Add the main JavaScript
         ${jsContent}
       </script>

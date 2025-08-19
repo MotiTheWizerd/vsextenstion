@@ -16,8 +16,10 @@ The request format matches your config:
 ```json
 {
   "message": "User's message here",
-  "timestamp": "2025-01-08T10:30:00.000Z",
-  "source": "raydaemon-vscode"
+  "model": null,
+  "project_id": "my-workspace-a1b2c3d4",
+  "chat_id": "chat-e5f6g7h8",
+  "user_id": "user-b3c4d5e6f7g8"
 }
 ```
 
@@ -57,11 +59,13 @@ pnpm run compile
    ```json
    {
      "message": "Hello Ray!",
-     "timestamp": "2025-01-08T10:30:00.000Z",
-     "source": "raydaemon-vscode"
+     "model": null,
+     "project_id": "my-workspace-a1b2c3d4",
+     "chat_id": "chat-e5f6g7h8",
+     "user_id": "user-b3c4d5e6f7g8"
    }
    ```
-3. **Sends POST to:** `http://localhost:8000/api/messages`
+3. **Sends POST to:** `http://localhost:8000/api/vscode_user_message`
 4. **Displays response** in the chat
 
 ## 🚨 Error Handling
@@ -77,8 +81,9 @@ If your Ray server isn't running, you'll see helpful error messages:
 
 Your Ray API server should:
 
-1. **Accept POST requests** at `/api/messages`
-2. **Return JSON response** in one of these formats:
+1. **Accept POST requests** at `/api/vscode_user_message`
+2. **Handle new message format** with `project_id` and `chat_id` fields
+3. **Return JSON response** in one of these formats:
    ```json
    { "response": "Your response here" }
    // OR
@@ -98,10 +103,40 @@ Your Ray API server should:
 - [ ] Custom messages are sent to your Ray API
 - [ ] Error messages are helpful when server is down
 
+## 📋 Message Structure Update
+
+RayDaemon now sends a simplified message structure with session tracking:
+
+### New Fields
+- `project_id`: Unique identifier for your workspace (e.g., "my-project-a1b2c3d4")
+- `chat_id`: Unique identifier for the chat session (e.g., "chat-e5f6g7h8")
+- `user_id`: Unique identifier for the user/VS Code instance (e.g., "user-b3c4d5e6f7g8")
+
+### Removed Fields
+- `timestamp`: No longer included
+- `source`: No longer included
+- `thinking_budget`: Removed
+- `include_system`: Removed
+- `use_memory`: Removed
+- `max_memory_messages`: Removed
+
+### Server Updates Required
+Update your server to handle the new format:
+```python
+def handle_message(data):
+    message = data['message']
+    project_id = data['project_id']  # NEW: Project identifier
+    chat_id = data['chat_id']        # NEW: Chat session identifier
+    user_id = data['user_id']        # NEW: User/VS Code instance identifier
+    model = data.get('model')        # Usually null
+    # ... process message with session context
+```
+
 ## 🚀 Next Steps
 
-1. **Start your Ray server** on `localhost:8000`
-2. **Test the connection** with the `test` command
-3. **Chat with your Ray AI** through the beautiful new interface!
+1. **Update your Ray server** to handle the new message format
+2. **Start your Ray server** on `localhost:8000`
+3. **Test the connection** with the `test` command
+4. **Chat with your Ray AI** through the beautiful new interface!
 
-Your RayDaemon is now a **fully functional AI chat interface** that connects to your Ray API! 🎉
+Your RayDaemon is now a **fully functional AI chat interface** with session tracking that connects to your Ray API! 🎉

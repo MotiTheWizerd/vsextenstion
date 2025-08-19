@@ -1,5 +1,5 @@
-import ModernChatUI from './chat-ui.js';
-import MessageHandler from './message-handler.js';
+import ModernChatUI from "./chat-ui.js";
+import MessageHandler from "./message-handler.js";
 
 // Acquire the VS Code API
 const vscode = acquireVsCodeApi();

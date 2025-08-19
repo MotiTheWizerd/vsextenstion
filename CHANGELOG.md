@@ -2,6 +2,101 @@
 
 All notable changes to the RayDaemon extension will be documented in this file.
 
+## [1.2.2] - 2024-12-19 - Critical Race Condition Fix & Multi-Round Tool Execution
+
+### Fixed
+
+#### Critical Race Condition in Tool Execution
+- **Multi-Round Execution Bug**: Fixed critical race condition where follow-up tool execution rounds would fail with "Tools already executing, skipping duplicate execution"
+- **Infinite Loop Prevention**: Eliminated infinite loops where Ray would wait indefinitely for results that never came
+- **Execution State Management**: Fixed `isExecutingTools` flag timing in `CommandExecutor` by resetting before sending results to Ray
+- **Follow-up Command Processing**: Ray's follow-up responses with additional command calls now execute successfully
+
+#### Tool Execution Flow Issues
+- **Race Condition**: Fixed timing issue where `sendResultsToRay()` could trigger follow-up responses before execution state was properly reset
+- **State Coordination**: Improved coordination between tool execution completion and follow-up response processing
+- **Error Recovery**: Enhanced error handling to prevent deadlocks in tool execution state
+- **Memory Cleanup**: Ensured proper cleanup of execution flags in both success and error scenarios
+
+#### ActiveToolExecution Flag Management
+- **Flag Reset Logic**: Added proper reset of `activeToolExecution` flag after successful multi-round completion
+- **Subsequent Message Support**: Ensured subsequent user messages work correctly after complex multi-round workflows
+- **State Persistence**: Improved state management to handle complex execution sequences
+
+#### Message Pipeline Robustness
+- **Duplicate Message Prevention**: Enhanced duplicate message handling in `RayDaemonViewProvider`
+- **Response Coordination**: Better coordination between direct API responses and webhook responses
+- **Flow Control**: Improved message flow control to prevent interference between execution rounds
+
+### Added
+
+#### Multi-Round Tool Execution Support
+- **Iterative Workflows**: Full support for Ray workflows that require multiple command execution rounds
+- **Complex Task Handling**: Ability to handle tasks like "Fix syntax errors in multiple files" with multiple fix rounds
+- **Follow-up Command Processing**: Proper processing of Ray's follow-up responses containing additional commands
+- **Execution Tracking**: Enhanced logging with execution IDs to track multi-round execution sequences
+
+#### Enhanced Debugging & Monitoring
+- **Execution ID Tracking**: Added unique execution IDs to track and debug multi-round execution flows
+- **Detailed State Logging**: Comprehensive logging of execution state changes and flag transitions
+- **Race Condition Detection**: Added specific logging to detect and prevent race conditions
+- **Flow Visualization**: Better log output to understand the complete execution flow
+
+### Technical Changes
+
+#### CommandExecutor (`src/extension_utils/commandExecutor.ts`)
+- **Critical Fix**: Reset `isExecutingTools = false` BEFORE calling `sendResultsToRay()` instead of after
+- **Execution ID System**: Added unique execution IDs for tracking multi-round execution
+- **Enhanced Logging**: Detailed logging with execution context for debugging
+- **Error Path Handling**: Improved error handling to reset execution state on failures
+
+#### RayLoop (`src/rayLoop.ts`)
+- **ActiveToolExecution Reset**: Added proper reset of `activeToolExecution` flag after final completion
+- **Follow-up Processing**: Enhanced processing of Ray's follow-up responses with command calls
+- **State Management**: Improved coordination between tool execution and response processing
+
+#### ViewProvider (`src/ui/RayDaemonViewProvider.ts`)
+- **Duplicate Prevention**: Enhanced check for `__RAY_RESPONSE_HANDLED__` marker to prevent duplicate messages
+- **Message Coordination**: Better coordination between different message handling paths
+
+### Improved
+
+#### Workflow Reliability
+- **End-to-End Completion**: Complex workflows now complete successfully from start to finish
+- **No More Hanging States**: Eliminated hanging operations where Ray waits indefinitely
+- **Robust Error Recovery**: Better recovery from partial failures in multi-round executions
+- **Consistent State Management**: More reliable state management across execution boundaries
+
+#### User Experience
+- **Complex Task Support**: Users can now request complex tasks that require multiple execution rounds
+- **Progress Visibility**: Tool status UI properly shows progress for all execution rounds
+- **Completion Feedback**: Proper completion messages after complex multi-round workflows
+- **Error Transparency**: Better error messages when issues occur in multi-round execution
+
+#### Developer Experience
+- **Debug Capability**: Enhanced logging makes it easier to debug execution flow issues
+- **State Visibility**: Clear visibility into execution state transitions
+- **Flow Tracking**: Ability to track complex execution flows through unique IDs
+- **Error Diagnostics**: Better error reporting and diagnostics for execution issues
+
+### Examples of Fixed Workflows
+
+#### Previously Broken (Before 1.2.2)
+- **File Fixing**: "Fix syntax errors in my CSS and JS files" → Follow-up commands blocked → Infinite loop
+- **Multi-step Operations**: "Analyze my codebase and create documentation" → Incomplete execution
+- **Iterative Improvements**: "Refactor this code and add error handling" → Partial completion only
+
+#### Now Working (After 1.2.2)
+- **File Fixing**: Complete execution of all fix rounds with proper completion
+- **Multi-step Operations**: Full end-to-end execution of complex analysis and creation tasks
+- **Iterative Improvements**: Complete iterative workflows with multiple improvement rounds
+
+### Performance Impact
+- **Memory**: No impact - only affects control flow timing
+- **Processing**: Minimal - slightly earlier flag reset improves flow
+- **Network**: No additional API calls required
+- **UI**: Positive - eliminates hanging states and shows proper progress for all rounds
+
 ## [1.2.1] - 2024-12-19 - Improved Command Grouping & Status Messages
 
 ### Fixed

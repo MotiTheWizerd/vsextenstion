@@ -64,7 +64,7 @@ const DEFAULT_CONFIG: Required<WebviewConfig> = {
 export function getWebviewContent(
   webview: vscode.Webview,
   extensionContext: vscode.ExtensionContext,
-  config: WebviewConfig = {}
+  config: WebviewConfig = {},
 ): string {
   // Merge with defaults
   const mergedConfig: Required<WebviewConfig> = {
@@ -72,10 +72,14 @@ export function getWebviewContent(
     ...config,
   };
 
+  // Get workspace root
+  const workspaceRoot =
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+
   const cssContent = getStyles(extensionContext, mergedConfig.customCSS);
   const jsContent = getScripts(extensionContext, mergedConfig.customJS);
 
-  return getHtml(mergedConfig, cssContent, jsContent);
+  return getHtml(mergedConfig, cssContent, jsContent, workspaceRoot);
 }
 
 export { getNonce, getWebviewResourceUri };
