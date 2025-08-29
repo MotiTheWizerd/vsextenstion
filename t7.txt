@@ -1,0 +1,2 @@
+235:      isWorking = false,
+257:    if (isWorking) {

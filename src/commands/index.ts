@@ -96,6 +96,18 @@ export function registerCommands(context: vscode.ExtensionContext) {
                 result: apiResult,
               });
               break;
+            case "agentModeSelected":
+              try {
+                const mode = message.mode || "agent";
+                await context.workspaceState.update("raydaemon.agentMode", mode);
+                panel.webview.postMessage({
+                  type: "statusUpdate",
+                  content: `Mode: ${mode}`,
+                });
+              } catch (e) {
+                console.error("[RayDaemon] Failed to set agent mode:", e);
+              }
+              break;
             case "openFile":
               if (message.filePath) {
                 try {
@@ -183,3 +195,4 @@ export function registerCommands(context: vscode.ExtensionContext) {
     }),
   );
 }
+

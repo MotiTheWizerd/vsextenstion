@@ -1534,6 +1534,8 @@ class MessageHandler {
         isMarkdown: true,
         showAvatar: true,
       });
+      // Final chat responses should clear typing indicator
+      this.chatUI.showTypingIndicator(false);
       return;
     }
 
@@ -1561,6 +1563,8 @@ class MessageHandler {
           if (workingMessage) {
             workingMessage.remove();
           }
+          // Hide typing indicator on final response
+          this.chatUI.showTypingIndicator(false);
         }
 
         this.chatUI.addMessage("assistant", content, {

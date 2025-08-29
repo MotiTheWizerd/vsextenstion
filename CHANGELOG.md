@@ -2,6 +2,40 @@
 
 All notable changes to the RayDaemon extension will be documented in this file.
 
+## [1.2.3] - 2025-01-09 - Chat-Only UI, Contracts, And Tool-Flow UX
+
+### Added
+
+- Chat-only panel: Removed legacy sidebar view. A single chat panel runs in ViewColumn.Two and its editor group is locked. Any stray editors are moved back to the main editor.
+- WebviewRegistry: Central panel registry replaces brittle global panel state.
+- Agent toggle: Added “Brainstorm” option to the agent dropdown. Selection is persisted to workspace state and reflected in status.
+- Shared message contracts: New `src/types/messages.ts` defines `RayRequest`, `RayResponse`, `CommandCall`, `CommandResult` and helpers. `execFactory` now reuses shared CommandCall/CommandResult.
+- Result-only fallback: When a server response contains only `command_results` (no assistant content), the UI shows a visible summary and tool status badges.
+
+### Changed
+
+- Typing indicator and “working” bubble now persist through tool execution and only clear on completion (final response or toolStatus completed/failed/partial).
+- Prevent rayResponse double-processing in the webview (removed duplicate path that caused an empty bubble).
+- Panel auto-open now opens chat only, does not reveal the sidebar.
+- Programmatic file opens and diffs always target ViewColumn.One; sidebar removed.
+
+### Fixed
+
+- Explorer files no longer open as tabs in the chat group. The chat group is locked and an editor guard moves stray editors back to the main editor group.
+- Cleaned up typing-indicator duplication: indicator markup is defined once in the base HTML template, not rewritten at runtime.
+
+### Docs
+
+- Added `docs/CHAT_PANEL_BEHAVIOR.md` describing chat-only layout, locked group, and editor guards.
+- Added `docs/MESSAGE_CONTRACTS.md` documenting request/response schemas and enforcement rules.
+- Updated `docs/layout-and-panels.md` and `docs/developer-guide.md` to reflect chat-only panel, registry, and shared contracts.
+
+### Internal
+
+- src/ui/assets/js/webview-bundle.js: tie toolStatus to typing indicator and maintain/remove a dedicated working bubble using `data-working="true"`.
+- src/extension_utils/rayResponseHandler.ts: type-safe `RayResponse`, visible fallback for result-only responses; uses `WebviewRegistry` for routing.
+- src/rayLoop.ts: typed callback to `RayResponse` and typed `RayRequest` on outbound; preserves multi-round flow.
+
 ## [1.2.2] - 2024-12-19 - Critical Race Condition Fix & Multi-Round Tool Execution
 
 ### Fixed

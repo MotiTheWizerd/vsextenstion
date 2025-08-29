@@ -785,7 +785,35 @@ class MessageHandler {
         this.handleError(data);
         break;
       case "toolStatus":
-        console.log("✅ Tool Status:", data);
+        console.log("�o. Tool Status:", data);
+        try {
+          const status = data && data.data ? data.data.status : undefined;
+          if (status === "starting" || status === "working") {
+            this.chatUI.showTypingIndicator(true);
+            try {
+              const elm = this.chatUI.chatMessages.querySelector('[data-working="true"]');
+              if (!elm) {
+                this.chatUI.addMessage("assistant", "RayDaemon is thinking", {
+                  isMarkdown: false,
+                  showAvatar: true,
+                  isWorking: true,
+                });
+              }
+            } catch (_) {}
+          } else if (
+            status === "completed" ||
+            status === "failed" ||
+            status === "partial"
+          ) {
+            this.chatUI.showTypingIndicator(false);
+            try {
+              const elm = this.chatUI.chatMessages.querySelector('[data-working="true"]');
+              if (elm) { elm.remove(); }
+            } catch (_) {}
+          }
+        } catch (e) {
+          // ignore typing toggle errors
+        }
         this.handleToolStatus(data);
         break;
       case "clearChat":

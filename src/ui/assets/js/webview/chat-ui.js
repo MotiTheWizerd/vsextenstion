@@ -42,20 +42,8 @@ class ModernChatUI {
       inputContainer.appendChild(wrapper);
     }
 
-    // Update typing indicator with dots
-    if (
-      this.typingIndicator &&
-      !this.typingIndicator.querySelector(".typing-dots")
-    ) {
-      this.typingIndicator.innerHTML = `
-        RayDaemon is thinking
-        <div class="typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      `;
-    }
+    // Typing indicator HTML is defined in the base HTML template (html.ts)
+    // Avoid duplicating its content here.
 
     // Update status bar with indicator
     if (this.statusBar && !this.statusBar.querySelector(".status-indicator")) {
@@ -189,7 +177,7 @@ class ModernChatUI {
 
       // Timeout for typing indicator
       this.typingTimeout = setTimeout(() => {
-        this.showTypingIndicator(false);
+        // Keep typing indicator active; do not hide here to allow long-running tool flows
         this.addMessage(
           "assistant",
           "Sorry, I didn't receive a response. Please try again.",
@@ -243,12 +231,8 @@ class ModernChatUI {
       }
     }
 
-    // Always clear typing indicator when adding any message
-    this.showTypingIndicator(false);
-    if (this.typingTimeout) {
-      clearTimeout(this.typingTimeout);
-      this.typingTimeout = null;
-    }
+    // Do not auto-hide typing here; it is controlled by message flow.
+    // Final responses or errors will explicitly clear the typing indicator.
 
     const messageDiv = document.createElement("div");
     messageDiv.className = `message ${sender}`;

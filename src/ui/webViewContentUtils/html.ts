@@ -85,6 +85,12 @@ export function getHtml(
                           <circle cx="12" cy="7" r="4"></circle>
                         </svg>
                       </button>
+                      <button class="dropdown-item" data-value="brainstorm">
+                        <span>Brainstorm</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M9 9a3 3 0 016 0v1a3 3 0 012 3v3h-2l-1 2h-4l-1-2H7v-3a3 3 0 012-3V9z"></path>
+                        </svg>
+                      </button>
                       <button class="dropdown-item" data-value="chat">
                         <span>Chat</span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
