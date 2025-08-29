@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { WebviewRegistry } from './ui/webview-registry';
 
 declare global {
   // Extend the global namespace to include our panel reference
@@ -8,7 +9,7 @@ declare global {
 }
 
 export async function sendAutonomousMessage(message: string): Promise<void> {
-  const panel = (global as any).currentPanel as vscode.WebviewPanel | undefined;
+  const panel = WebviewRegistry.getPreferred();
   if (!panel) {
     console.log('[RayDaemon] No active panel to send message to');
     return;
@@ -26,7 +27,7 @@ export async function sendAutonomousMessage(message: string): Promise<void> {
 }
 
 export async function sendRayLoopMessage(content: string): Promise<void> {
-  const panel = (global as any).currentPanel as vscode.WebviewPanel | undefined;
+  const panel = WebviewRegistry.getPreferred();
   if (!panel) {
     console.log('[RayDaemon] No active panel to send Ray loop message to');
     return;

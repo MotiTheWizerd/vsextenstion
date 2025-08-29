@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { getWebviewContent } from "../ui/WebviewContent";
+import { WebviewRegistry } from "../ui/webview-registry";
 import { handleCommand } from "./commandHandler";
 
 export function registerCommands(context: vscode.ExtensionContext) {
@@ -16,22 +17,8 @@ export function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("raydaemon.openWelcomeView", async () => {
       try {
-        await vscode.commands.executeCommand(
-          "workbench.view.extension.rayDaemonContainer",
-        );
-        try {
-          await vscode.commands.executeCommand(
-            "workbench.action.openView",
-            "rayDaemonDummyView",
-          );
-        } catch (error) {
-          console.log(
-            "[RayDaemon] openView command not available, using focus instead",
-          );
-          await vscode.commands.executeCommand(
-            "workbench.view.extension.rayDaemonContainer",
-          );
-        }
+        // Sidebar view is disabled; redirect to chat panel
+        await vscode.commands.executeCommand("raydaemon.openChatPanel");
       } catch (error) {
         console.error("[RayDaemon] Failed to open welcome view:", error);
       }
@@ -40,28 +27,33 @@ export function registerCommands(context: vscode.ExtensionContext) {
 
   // Register open panel command
   context.subscriptions.push(
-    vscode.commands.registerCommand("raydaemon.openChatPanel", () => {
+    vscode.commands.registerCommand("raydaemon.openChatPanel", async () => {
       console.log("[RayDaemon] raydaemon.openChatPanel command executed.");
 
       // Check if a panel already exists
-      if ((global as any).currentPanel) {
+      const existing = WebviewRegistry.getPreferred();
+      if (existing) {
         console.log("[RayDaemon] Panel already exists, revealing it.");
-        (global as any).currentPanel.reveal(vscode.ViewColumn.Two);
+        existing.reveal(vscode.ViewColumn.Two);
         return;
       }
       const panel = vscode.window.createWebviewPanel(
         "rayDaemonPanel",
         "RayDaemon Control",
-        vscode.ViewColumn.Two,
+        { viewColumn: vscode.ViewColumn.Two, preserveFocus: false },
         {
           enableScripts: true,
-          retainContextWhenHidden: true, // Add this line
+          retainContextWhenHidden: true,
         },
       );
       console.log("[RayDaemon] WebviewPanel created.");
 
-      // Store panel reference for autonomous messaging
-      (global as any).currentPanel = panel;
+      // Register panel in the central registry
+      WebviewRegistry.register(panel);
+
+      panel.onDidDispose(() => {
+        WebviewRegistry.unregister(panel);
+      });
 
       // Enable message passing between webview and extension
       panel.webview.onDidReceiveMessage(
@@ -168,6 +160,19 @@ export function registerCommands(context: vscode.ExtensionContext) {
         context,
         webviewConfig,
       );
+
+      // Lock the chat editor group to avoid other tabs opening into it,
+      // then return focus to the first editor group.
+      try {
+        await vscode.commands.executeCommand("workbench.action.lockEditorGroup");
+      } catch (e) {
+        console.log("[RayDaemon] lockEditorGroup not available, skipping.");
+      }
+      try {
+        await vscode.commands.executeCommand("workbench.action.focusFirstEditorGroup");
+      } catch (e) {
+        // ignore if not available
+      }
     }),
   );
 

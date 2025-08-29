@@ -1,0 +1,1 @@
+src\commands\index.ts:120:                    "vscode.diff",

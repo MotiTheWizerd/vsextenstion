@@ -5,17 +5,18 @@ import {
   CommandExecutor,
   ApiClient,
 } from ".";
-import { RayDaemonTreeProvider } from "../treeView";
-import { RayDaemonViewProvider } from "../ui/RayDaemonViewProvider";
+// Sidebar tree and view intentionally disabled
+// import { RayDaemonTreeProvider } from "../treeView";
+// import { RayDaemonViewProvider } from "../ui/RayDaemonViewProvider";
 import { logInfo } from "../logging";
 import { disposeGlobalDiagnosticWatcher } from "../commands/commandMethods/diagnostics";
 import { registerCommands as registerAllCommands } from "../commands";
 import { setProcessRayResponseCallback } from "../rayLoop";
+import { setupEditorGuards } from "./editorGuards";
 
 export class ExtensionManager {
   private daemonInterval: NodeJS.Timeout | undefined;
   private webhookServer: WebhookServer | undefined;
-  private currentPanel: vscode.WebviewPanel | undefined;
   private commandExecutor: CommandExecutor | undefined;
   private rayResponseHandler: RayResponseHandler | undefined;
   private activated: boolean = false;
@@ -33,10 +34,11 @@ export class ExtensionManager {
 
     this.setupRayResponseHandling();
     this.startDaemon();
-    this.registerWebviewProvider();
+    // Sidebar view disabled intentionally; only chat panel is active.
     console.log("[RayDaemon] Calling registerCommands()...");
     registerAllCommands(this.context);
-    this.setupTreeView();
+    // Sidebar tree view disabled with sidebar.
+    setupEditorGuards(this.context);
     if (!this.autoPanelOpened) {
       this.autoOpenPanel();
       this.autoPanelOpened = true;
@@ -87,35 +89,15 @@ export class ExtensionManager {
       logInfo("Webhook server stopped");
     }
 
-    (global as any).currentPanel = undefined;
+    // No global panel tracking; WebviewRegistry handles lifecycle.
   }
 
-  private registerWebviewProvider(): void {
-    const provider = new RayDaemonViewProvider(this.context);
-    this.context.subscriptions.push(
-      vscode.window.registerWebviewViewProvider(
-        RayDaemonViewProvider.viewType,
-        provider,
-      ),
-    );
-  }
-
-  private setupTreeView(): void {
-    const treeDataProvider = new RayDaemonTreeProvider();
-    vscode.window.registerTreeDataProvider(
-      "rayDaemonDummyView",
-      treeDataProvider,
-    );
-  }
+  // Sidebar provider and tree view intentionally not registered.
 
   private autoOpenPanel(): void {
     setTimeout(async () => {
       try {
-        // First open the sidebar to show the welcome view
-        await vscode.commands.executeCommand(
-          "workbench.view.extension.rayDaemonContainer",
-        );
-        // Then automatically open the chat panel like the button does
+        // Open only the chat panel, do not open the sidebar view
         await vscode.commands.executeCommand("raydaemon.openChatPanel");
       } catch (error) {
         console.error("[RayDaemon] Failed to auto-open chat panel:", error);

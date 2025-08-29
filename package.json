@@ -46,24 +46,7 @@
         "category": "RayDaemon"
       }
     ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "rayDaemonContainer",
-          "title": "RayDaemon",
-          "icon": "$(robot)"
-        }
-      ]
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "raydaemon.openChatPanel",
-          "when": "view == rayDaemonDummyView",
-          "group": "navigation"
-        }
-      ]
-    },
+    "menus": {},
     "configuration": {
       "title": "RayDaemon",
       "properties": {
@@ -74,20 +57,8 @@
         }
       }
     },
-    "views": {
-      "rayDaemonContainer": [
-        {
-          "id": "rayDaemonDummyView",
-          "name": "Control Panel"
-        }
-      ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "rayDaemonDummyView",
-        "contents": "Welcome to RayDaemon!\n\n[Open Chat Panel](command:raydaemon.openChatPanel)\n\nClick the button above to open the chat interface."
-      }
-    ]
+    "views": {},
+    "viewsWelcome": []
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",

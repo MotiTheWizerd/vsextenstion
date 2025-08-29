@@ -1,8 +1,10 @@
 import * as vscode from "vscode";
 import { logInfo, logError } from "../logging";
-import { RayResponsePayload } from "../commands/execFactory";
+import type { RayResponse } from "../types/messages";
 import { sendCommandResultsToRay } from "../rayLoop";
 import { CommandExecutor } from ".";
+import { WebviewRegistry } from "../ui/webview-registry";
+import { showFinalStatus } from "./commandExecutorTools/toolStatusNotifier";
 
 export class RayResponseHandler {
   private processedResponses = new Set<string>();
@@ -12,10 +14,10 @@ export class RayResponseHandler {
   constructor(private commandExecutor: CommandExecutor) {}
 
   private getCurrentPanel(): any {
-    return (global as any).currentPanel;
+    return WebviewRegistry.getPreferred();
   }
 
-  handleRayPostResponse(rayResponse: any): void {
+  handleRayPostResponse(rayResponse: RayResponse): void {
     console.log("[RayDaemon] *** handleRayPostResponse CALLED ***");
 
     // Safety check for null responses
@@ -60,13 +62,13 @@ export class RayResponseHandler {
     this.processRayResponse(rayResponse);
   }
 
-  async processRayResponse(rayResponse: any): Promise<void> {
+  async processRayResponse(rayResponse: RayResponse): Promise<void> {
     if (!rayResponse) {
       logError("Empty response received");
       return;
     }
 
-    const payload = rayResponse as RayResponsePayload;
+    const payload = rayResponse as RayResponse;
     console.log(
       "[RayDaemon] Processing ray response, payload keys:",
       Object.keys(payload),
@@ -162,7 +164,7 @@ export class RayResponseHandler {
     }
   }
 
-  private extractContent(payload: RayResponsePayload): string {
+  private extractContent(payload: RayResponse): string {
     // Check all common content fields in order of preference
     if (payload.message) {
       return payload.message;
@@ -196,7 +198,7 @@ export class RayResponseHandler {
   }
 
   private async processPayload(
-    payload: any,
+    payload: RayResponse,
     content: string,
     isFinal: boolean,
     currentPanel: any,
@@ -253,6 +255,35 @@ export class RayResponseHandler {
         }
       }
     } else {
+      // Visible fallback when only command_results arrive without content
+      if (
+        (!content || content.trim().length === 0) &&
+        Array.isArray(payload.command_results) &&
+        payload.command_results.length > 0
+      ) {
+        try {
+          const toolNames = payload.command_results.map((r) => r.command);
+          await showFinalStatus(toolNames, payload.command_results as any);
+        } catch (e) {
+          console.log("[RayDaemon] Failed to send toolStatus fallback:", e);
+        }
+
+        const successCount = payload.command_results.filter((r) => r.ok).length;
+        const total = payload.command_results.length;
+        const failCount = total - successCount;
+        const summary = `dY"? **Command results received: ${successCount}/${total} successful**${failCount ? ` (failed: ${failCount})` : ""}`;
+
+        currentPanel.webview.postMessage({
+          type: "rayResponse",
+          data: {
+            content: summary,
+            isFinal: isFinal,
+            isWorking: false,
+          },
+        });
+        return;
+      }
+
       console.log("=== NO COMMAND CALLS - NORMAL RESPONSE ===");
       console.log(
         `[RayDaemon] Sending completion message to webview - content: "${content}", isFinal: ${isFinal}`,

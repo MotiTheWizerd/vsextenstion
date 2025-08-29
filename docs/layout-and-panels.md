@@ -21,9 +21,9 @@ VS Code uses a column-based layout system with the following structure:
 └─────────────┴─────────────────────┴─────────────────┴─────────────────┘
 ```
 
-### RayDaemon Panel Placement
+### RayDaemon Panel Placement (Updated)
 
-RayDaemon strategically uses **ViewColumn.Two** (secondary panel) for its chat interface:
+RayDaemon now uses a single, primary chat panel in **ViewColumn.Two** (secondary panel). The legacy sidebar view has been deprecated and is no longer registered or opened.
 
 ```
 ┌─────────────┬─────────────────────┬─────────────────┐
@@ -38,6 +38,11 @@ RayDaemon strategically uses **ViewColumn.Two** (secondary panel) for its chat i
 
 ## Panel Management Strategy
 
+### 0. Sidebar View (Deprecated)
+
+- The contributed sidebar container/view is removed. All interactions occur in the chat webview panel.
+- Internal routing uses a central `WebviewRegistry` instead of a global `currentPanel` variable.
+
 ### 1. Chat Panel (ViewColumn.Two)
 
 **Purpose**: Persistent AI assistant interface
@@ -47,6 +52,7 @@ RayDaemon strategically uses **ViewColumn.Two** (secondary panel) for its chat i
 - Opens automatically on extension activation
 - Remains persistent across sessions
 - Provides continuous access to Ray AI
+- The chat editor group is locked to prevent other editors from opening in this group
 
 ```typescript
 // Chat panel creation
@@ -70,6 +76,7 @@ const panel = vscode.window.createWebviewPanel(
 - All file opening operations target the main editor
 - Diff views open in the main editor area
 - Preserves the chat panel accessibility
+- If VS Code routes a new editor to the chat group by mistake, a small guard moves it back to the main editor automatically
 
 ```typescript
 // File opening

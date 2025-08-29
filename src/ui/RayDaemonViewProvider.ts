@@ -230,29 +230,6 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    // Expose a small wrapper so existing code that expects a WebviewPanel-like
-    // global `currentPanel` with a `webview.postMessage` API continues to work.
-    (global as any).currentPanel = {
-      webview: webviewView.webview,
-      reveal: async () => {
-        // Reveal the activity bar container where this view lives
-        await vscode.commands.executeCommand(
-          "workbench.view.extension.rayDaemonContainer",
-        );
-      },
-      dispose: () => {
-        console.log("disposing current panek ");
-        // No-op: WebviewViews are managed by VS Code. We clear the ref instead.
-        (global as any).currentPanel = undefined;
-      },
-    };
-    // When the view is disposed or hidden, clear the global reference
-    try {
-      webviewView.onDidDispose?.(() => {
-        (global as any).currentPanel = undefined;
-      });
-    } catch (_) {
-      // older hosts may not have onDidDispose
-    }
+    // No longer setting global currentPanel; sidebar view is deprecated.
   }
 }

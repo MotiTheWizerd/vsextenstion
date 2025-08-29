@@ -1,0 +1,29 @@
+src\ui\RayDaemonViewProvider.ts:233:    // No longer setting global currentPanel; sidebar view is deprecated.
+src\rayLoop.ts:238:        if (globalAny.currentPanel) {
+src\rayLoop.ts:239:          globalAny.currentPanel.webview.postMessage({
+src\messaging.ts:7:    currentPanel?: vscode.WebviewPanel;
+src\extension_utils\rayResponseHandler.ts:114:    const currentPanel = this.getCurrentPanel();
+src\extension_utils\rayResponseHandler.ts:115:    if (!currentPanel) {
+src\extension_utils\rayResponseHandler.ts:134:        currentPanel,
+src\extension_utils\rayResponseHandler.ts:152:    const currentPanel = this.getCurrentPanel();
+src\extension_utils\rayResponseHandler.ts:153:    if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:154:      currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:203:    currentPanel: any,
+src\extension_utils\rayResponseHandler.ts:219:      if (currentPanel && content) {
+src\extension_utils\rayResponseHandler.ts:223:        currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:245:        if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:246:          currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:263:      if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:264:        currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:279:    const currentPanel = this.getCurrentPanel();
+src\extension_utils\rayResponseHandler.ts:280:    if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:281:      currentPanel.webview.postMessage({
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:103:  const currentPanel = getCurrentPanel();
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:104:  if (currentPanel) {
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:126:    currentPanel.webview.postMessage(message);
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:143:  const currentPanel = getCurrentPanel();
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:144:  if (currentPanel) {
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:176:    currentPanel.webview.postMessage(message);
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:196:  const currentPanel = getCurrentPanel();
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:197:  if (currentPanel) {
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:254:    currentPanel.webview.postMessage(message);

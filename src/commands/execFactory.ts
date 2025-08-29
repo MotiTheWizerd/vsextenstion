@@ -1,45 +1,6 @@
 import { CommandError } from "./commandHandler"; // you already export this
 import type { CommandRegistry } from "./commandHandler"; // { [key]: { handler, description, usage } }
-
-// --- Types from Ray payload ---
-export interface CommandCall {
-  command: string;
-  args?: unknown; // will be validated into string[]
-}
-
-export interface RayResponsePayload {
-  // text bits
-  message?: string;
-  content?: string;
-  response?: string;
-  text?: string;
-
-  // control/state
-  status?: "start working" | "working" | string;
-  is_final?: boolean | string;
-  ray_prompt?: string;
-  timestamp?: string;
-  test_id?: number | string;
-
-  // tool calls
-  command_calls?: Array<{
-    command: string;
-    args?: unknown;
-  }>;
-  commandCalls?: Array<{
-    command: string;
-    args?: unknown;
-  }>;
-}
-
-// --- Result types ---
-export interface CommandExecutionResult {
-  command: string;
-  args: string[];
-  ok: boolean;
-  output?: string; // string returned by handler
-  error?: string; // serialized error message
-}
+import type { CommandCall, CommandResult as CommandExecutionResult } from "../types/messages";
 
 export interface BatchExecutionResult {
   anyExecuted: boolean;

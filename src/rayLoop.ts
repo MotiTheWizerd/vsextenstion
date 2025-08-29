@@ -1,12 +1,13 @@
 import { config } from "./config";
 import { ApiClient } from "./apiClient";
+import type { RayResponse, RayRequest } from "./types/messages";
 
 // Forward declaration to avoid circular import
-let processRayResponse: ((rayResponse: any) => Promise<void>) | null = null;
+let processRayResponse: ((rayResponse: RayResponse) => Promise<void>) | null = null;
 
 // Function to set the processRayResponse callback from extension.ts
 export function setProcessRayResponseCallback(
-  callback: (rayResponse: any) => Promise<void>,
+  callback: (rayResponse: RayResponse) => Promise<void>,
 ) {
   processRayResponse = callback;
 }
@@ -16,7 +17,7 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
     console.log(`[RayDaemon] Sending message to Ray API: ${prompt}`);
 
     // Format the message using the config formatter
-    const messageData = config.formatMessage(prompt);
+    const messageData = config.formatMessage(prompt) as RayRequest;
 
     console.log(`[RayDaemon] Config apiEndpoint: ${config.apiEndpoint}`);
     console.log(`[RayDaemon] Sending to ${config.apiEndpoint}:`, messageData);
@@ -49,7 +50,7 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
       }
 
       // Check if response contains command_calls - if so, the processRayResponse will handle everything
-      const commandCalls = response.data?.command_calls;
+      const commandCalls = (response.data as RayResponse)?.command_calls;
       if (Array.isArray(commandCalls) && commandCalls.length > 0) {
         // Response with tools - processRayResponse will handle the flow
         return "__RAY_RESPONSE_HANDLED__:Tools are being executed, response will be handled by processRayResponse";

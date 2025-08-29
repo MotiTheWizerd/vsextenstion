@@ -1,0 +1,41 @@
+src\ui\RayDaemonViewProvider.ts:234:    // global `currentPanel` with a `webview.postMessage` API continues to work.
+src\ui\RayDaemonViewProvider.ts:235:    (global as any).currentPanel = {
+src\ui\RayDaemonViewProvider.ts:246:        (global as any).currentPanel = undefined;
+src\ui\RayDaemonViewProvider.ts:252:        (global as any).currentPanel = undefined;
+src\rayLoop.ts:238:        if (globalAny.currentPanel) {
+src\rayLoop.ts:239:          globalAny.currentPanel.webview.postMessage({
+src\messaging.ts:6:    currentPanel?: vscode.WebviewPanel;
+src\messaging.ts:11:  const panel = (global as any).currentPanel as vscode.WebviewPanel | undefined;
+src\messaging.ts:29:  const panel = (global as any).currentPanel as vscode.WebviewPanel | undefined;
+src\extension_utils\extensionManager.ts:18:  private currentPanel: vscode.WebviewPanel | undefined;
+src\extension_utils\extensionManager.ts:90:    (global as any).currentPanel = undefined;
+src\extension_utils\rayResponseHandler.ts:15:    return (global as any).currentPanel;
+src\extension_utils\rayResponseHandler.ts:113:    const currentPanel = this.getCurrentPanel();
+src\extension_utils\rayResponseHandler.ts:114:    if (!currentPanel) {
+src\extension_utils\rayResponseHandler.ts:133:        currentPanel,
+src\extension_utils\rayResponseHandler.ts:151:    const currentPanel = this.getCurrentPanel();
+src\extension_utils\rayResponseHandler.ts:152:    if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:153:      currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:202:    currentPanel: any,
+src\extension_utils\rayResponseHandler.ts:218:      if (currentPanel && content) {
+src\extension_utils\rayResponseHandler.ts:222:        currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:244:        if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:245:          currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:262:      if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:263:        currentPanel.webview.postMessage({
+src\extension_utils\rayResponseHandler.ts:278:    const currentPanel = this.getCurrentPanel();
+src\extension_utils\rayResponseHandler.ts:279:    if (currentPanel) {
+src\extension_utils\rayResponseHandler.ts:280:      currentPanel.webview.postMessage({
+src\commands\index.ts:47:      if ((global as any).currentPanel) {
+src\commands\index.ts:49:        (global as any).currentPanel.reveal(vscode.ViewColumn.Two);
+src\commands\index.ts:64:      (global as any).currentPanel = panel;
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:85:  const panel = (global as any).currentPanel;
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:102:  const currentPanel = getCurrentPanel();
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:103:  if (currentPanel) {
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:125:    currentPanel.webview.postMessage(message);
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:142:  const currentPanel = getCurrentPanel();
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:143:  if (currentPanel) {
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:175:    currentPanel.webview.postMessage(message);
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:195:  const currentPanel = getCurrentPanel();
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:196:  if (currentPanel) {
+src\extension_utils\commandExecutorTools\toolStatusNotifier.ts:253:    currentPanel.webview.postMessage(message);

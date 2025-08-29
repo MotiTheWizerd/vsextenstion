@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { WebviewRegistry } from "../../ui/webview-registry";
 
 // Helper function to categorize tools
 function getToolCategory(toolName: string): string {
@@ -82,7 +83,7 @@ function getToolCategory(toolName: string): string {
 }
 
 function getCurrentPanel(): any {
-  const panel = (global as any).currentPanel;
+  const panel = WebviewRegistry.getPreferred();
   console.log(`[toolStatusNotifier] Current panel exists: ${!!panel}`);
   if (panel && panel.webview) {
     console.log(
