@@ -8,6 +8,7 @@ RayDaemon is built as a VS Code extension with a webview-based chat interface su
 2. **Webview Layer** (`src/ui/`): Frontend chat interface and file operations
 3. **Command Layer** (`src/commands/`): Command execution and file system operations
 4. **Session Layer** (`src/utils/sessionManager.ts`): Project and chat session management
+5. **Registry** (`src/ui/webview-registry.ts`): Central registry for the single, primary chat panel
 
 ## API Message Structure
 
@@ -81,6 +82,7 @@ const sessionInfo = sessionManager.getSessionInfo();
   - `executeCommandCallsAndSendResults()`: Command batch execution with race condition prevention
   - `backupFileBeforeModification()`: File backup before Ray modifications
   - Message handlers for `openFile` and `showFileDiff`
+  - Initializes `WebviewRegistry`-backed chat panel and editor guards
 
 #### Configuration (`src/config.ts`)
 
@@ -173,6 +175,17 @@ async executeCommandCallsAndSendResults() {
 - `src/extension_utils/commandExecutor.ts`: Primary race condition fix
 - `src/rayLoop.ts`: ActiveToolExecution flag management  
 - `src/ui/RayDaemonViewProvider.ts`: Duplicate message prevention
+- `src/ui/webview-registry.ts`: Single chat panel registry
+- `src/extension_utils/editorGuards.ts`: Prevent editors from opening in chat group
+
+## Message Contracts (Shared Types)
+
+- `src/types/messages.ts` centralizes `RayRequest`, `RayResponse`, `CommandCall`, `CommandResult`.
+- `src/commands/execFactory.ts` imports shared `CommandCall`/`CommandResult` to avoid drift.
+- `src/extension_utils/rayResponseHandler.ts` and `src/rayLoop.ts` use `RayResponse` consistently.
+- Enforcement:
+  - `command_calls` → local exec
+  - `command_results` → summaries; a visible fallback is shown if only results arrive without content.
 
 ## Multi-Round Execution Debugging
 

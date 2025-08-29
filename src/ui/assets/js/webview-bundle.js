@@ -779,7 +779,7 @@ class MessageHandler {
         this.handleAddMessage(data);
         break;
       case "rayResponse":
-        this.handleResponse(data);
+        // Handled below with rayResponse-specific logic
         break;
       case "error":
         this.handleError(data);
@@ -837,28 +837,7 @@ class MessageHandler {
     });
   }
 
-  handleResponse(data) {
-    // Check if there are file contents
-    if (data.data?.fileContents) {
-      data.data.fileContents.forEach((fileContent) => {
-        const langSpec = FileUtils.getLanguageFromPath(fileContent.path);
-        const fileBlock = `\`\`\`${langSpec}\n${fileContent.content}\n\`\`\``;
-        const content = `📄 **${fileContent.path}**\n\n${fileBlock}`;
-
-        this.chatUI.addMessage("assistant", content, {
-          isMarkdown: true,
-          showAvatar: true,
-        });
-      });
-    } else {
-      // Handle regular response messages
-      this.chatUI.addMessage("assistant", data.content, {
-        isMarkdown: true,
-        showAvatar: true,
-        replaceLast: data.replaceLast,
-      });
-    }
-  }
+  // handleResponse removed; rayResponse handled inline in handleIncomingMessage
 
   handleError(data) {
     this.chatUI.addMessage("assistant", `Error: ${data.message}`, {

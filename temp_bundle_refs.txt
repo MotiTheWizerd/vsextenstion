@@ -1,0 +1,11 @@
+531:    this.addMessage("user", message, { showAvatar: true });
+560:        this.addMessage(
+569:      this.addMessage(
+577:  addMessage(sender, content, options = {}) {
+778:      case "addMessage":
+822:        this.chatUI.addMessage("assistant", content, {
+833:    this.chatUI.addMessage(data.role || "assistant", data.content, {
+848:        this.chatUI.addMessage("assistant", content, {
+855:      this.chatUI.addMessage("assistant", data.content, {
+864:    this.chatUI.addMessage("assistant", `Error: ${data.message}`, {
+1098:      const messageEl = this.chatUI.addMessage("system", "", {

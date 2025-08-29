@@ -1,0 +1,7 @@
+src/ui/assets/js/webview\message-handler.js:1540:    if (message.type === "rayResponse" && message.data) {
+src/ui/assets/js/webview\message-handler.js:1542:      console.log("rayResponse - content:", content);
+src/ui/assets/js/webview\message-handler.js:1543:      console.log("rayResponse - isWorking:", isWorking);
+src/ui/assets/js/webview\message-handler.js:1544:      console.log("rayResponse - isFinal:", isFinal);
+src/ui/assets/js/webview\message-handler.js:1545:      console.log("rayResponse - isCommandResult:", isCommandResult);
+src/ui/assets/js/webview\message-handler.js:1554:        console.log("Adding rayResponse message to chat");
+src/ui/assets/js/webview\message-handler.js:1572:        console.log("rayResponse has no content, skipping");

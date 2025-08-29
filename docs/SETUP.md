@@ -58,9 +58,8 @@ Or just a plain string response.
 1. Update your API endpoint in `src/config.ts`
 2. Run `pnpm run compile` to rebuild
 3. Press F5 to launch the extension development host
-4. Open the RayDaemon control panel
-5. Go to the Chat tab or use the global chat input
-6. Type a message and see your agent respond!
+4. Open the RayDaemon chat panel (Command Palette → "RayDaemon: Open Chat Panel")
+5. Type a message and see your agent respond!
 
 ## 5. Request Format Sent to Your API
 
