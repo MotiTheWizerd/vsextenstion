@@ -593,7 +593,6 @@ class ModernChatUI {
     }
 
     // Always clear typing indicator when adding any message
-    this.showTypingIndicator(false);
     if (this.typingTimeout) {
       clearTimeout(this.typingTimeout);
       this.typingTimeout = null;
@@ -805,7 +804,6 @@ class MessageHandler {
             status === "failed" ||
             status === "partial"
           ) {
-            this.chatUI.showTypingIndicator(false);
             try {
               const elm = this.chatUI.chatMessages.querySelector('[data-working="true"]');
               if (elm) { elm.remove(); }
@@ -828,7 +826,7 @@ class MessageHandler {
 
     // Handle rayResponse type messages
     if (data.type === "rayResponse" && data.data) {
-      const { content, isWorking, isFinal, isCommandResult } = data.data;
+      const { content, isWorking, isFinal, isCommandResult, command_calls } = data.data;
 
       if (content) {
         // Skip old command result messages only if they're not final responses
@@ -837,14 +835,17 @@ class MessageHandler {
           return;
         }
 
-        // If this is a final response and we have a working message, replace it
-        if (isFinal !== false && !isWorking) {
+        const hasCommandCalls = command_calls && command_calls.length > 0;
+
+        // If this is a final response with no more commands, hide indicators
+        if (isFinal !== false && !isWorking && !hasCommandCalls) {
           const workingMessage = this.chatUI.chatMessages.querySelector(
             '[data-working="true"]',
           );
           if (workingMessage) {
             workingMessage.remove();
           }
+          this.chatUI.showTypingIndicator(false);
         }
 
         this.chatUI.addMessage("assistant", content, {
