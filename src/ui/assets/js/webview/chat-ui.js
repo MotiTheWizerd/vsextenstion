@@ -53,7 +53,13 @@ class ModernChatUI {
   handleFileUpload(file) { return handleFileUpload(this, file); }
 
   // Clear chat
-  clearChat() { this.chatMessages.innerHTML = ""; }
+  clearChat() { 
+    this.chatMessages.innerHTML = ""; 
+    if (this.chatInput) {
+      this.chatInput.value = "";
+      this.adjustTextareaHeight();
+    }
+  }
 
   // Action bar handlers
   handleNewChat() {

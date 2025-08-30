@@ -271,18 +271,43 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
             break;
 
           case "loadChatSession":
-            console.log("[RayDaemon] Received loadChatSession command:", message.sessionId);
+            const sessionId = message.sessionId || message.chatId;
+            console.log("[RayDaemon] Received loadChatSession command with sessionId:", sessionId);
+            console.log("[RayDaemon] Full message object:", message);
             try {
               const { SessionManager } = require("../utils/sessionManager");
-              const session = SessionManager.getInstance().loadChatSession(message.sessionId);
+              const sessionManager = SessionManager.getInstance();
+              console.log("[RayDaemon] Calling sessionManager.loadChatSession with:", sessionId);
+              const session = sessionManager.loadChatSession(sessionId);
+              console.log("[RayDaemon] SessionManager returned:", session);
+              
               if (session) {
+                console.log(`[RayDaemon] Loaded session with ${session.messages ? session.messages.length : 0} messages`);
+                console.log("[RayDaemon] Session structure:", {
+                  id: session.id,
+                  name: session.name,
+                  messageCount: session.messages ? session.messages.length : 0,
+                  hasMessages: !!session.messages
+                });
+                
+                // Set this as the current active session
+                console.log("[RayDaemon] Setting loaded session as current active session");
+                
                 this._view?.webview.postMessage({
                   type: "loadChatSession",
                   data: session
                 });
+                
+                console.log("[RayDaemon] Sent session data to webview");
+              } else {
+                console.log("[RayDaemon] Session not found:", sessionId);
+                console.log("[RayDaemon] Available sessions:", sessionManager.getChatHistory().map((s: any) => s.id));
               }
             } catch (error) {
               console.error("[RayDaemon] Error loading chat session:", error);
+              if (error instanceof Error) {
+                console.error("[RayDaemon] Error stack:", error.stack);
+              }
             }
             break;
 
@@ -305,6 +330,13 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
               const { SessionManager } = require("../utils/sessionManager");
               const newChatId = SessionManager.getInstance().startNewChat();
               console.log("[RayDaemon] Started new chat session:", newChatId);
+              
+              // Clear the UI
+              this._view?.webview.postMessage({
+                command: "clearChat"
+              });
+              
+              console.log("[RayDaemon] Sent clearChat command to webview");
             } catch (error) {
               console.error("[RayDaemon] Error starting new chat:", error);
             }

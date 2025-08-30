@@ -44,15 +44,6 @@ export class ExtensionManager {
       const sessionManager = SessionManager.getInstance();
       const existingHistory = sessionManager.getChatHistory();
       console.log(`[RayDaemon] Found ${existingHistory.length} existing chat sessions`);
-      
-      // Test creating a session manually
-      console.log("[RayDaemon] Testing manual session creation...");
-      const testChatId = sessionManager.startNewChat("Test message");
-      console.log(`[RayDaemon] Created test session: ${testChatId}`);
-      
-      // Check if it was saved
-      const updatedHistory = sessionManager.getChatHistory();
-      console.log(`[RayDaemon] After test creation, found ${updatedHistory.length} chat sessions`);
     } catch (error) {
       console.error("[RayDaemon] Error testing chat history:", error);
       if (error instanceof Error) {

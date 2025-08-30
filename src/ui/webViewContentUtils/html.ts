@@ -166,9 +166,6 @@ export function getHtml(
       }
 
       <script>
-        // Expose VS Code API
-        const vscode = acquireVsCodeApi();
-
         // Inject workspace root as global variable
         window.workspaceRoot = "${workspaceRoot.replace(/\\/g, "\\\\")}";
 

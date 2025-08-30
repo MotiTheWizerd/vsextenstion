@@ -47,7 +47,7 @@ async function main() {
 	// Build webview
 	const webviewCtx = await esbuild.context({
 		entryPoints: [
-			'src/ui/assets/js/webview-bundle.js'
+			'src/ui/assets/js/webview.js'
 		],
 		bundle: true,
 		format: 'iife',

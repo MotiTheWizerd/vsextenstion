@@ -74,6 +74,10 @@ export default class MessageHandler {
         console.log("Received chat history response:", data.data);
         this.chatUI.displayChatHistoryModal(data.data);
         break;
+      case "loadChatSession":
+        console.log("Received loadChatSession response:", data.data);
+        this.chatUI.loadChatSessionMessages(data.data);
+        break;
       default:
         break;
     }

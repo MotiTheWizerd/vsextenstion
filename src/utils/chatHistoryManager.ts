@@ -63,7 +63,18 @@ export class ChatHistoryManager {
     const allSessions = this.context.workspaceState.get<ChatSession[]>(this.CHAT_HISTORY_KEY, []);
     console.log(`[ChatHistoryManager] Found ${allSessions.length} total sessions in workspace state`);
     
-    const projectSessions = allSessions.filter(session => session.projectId === projectId);
+    // Ensure dates are properly deserialized
+    const deserializedSessions = allSessions.map(session => ({
+      ...session,
+      createdAt: new Date(session.createdAt),
+      lastUpdatedAt: new Date(session.lastUpdatedAt),
+      messages: session.messages ? session.messages.map(msg => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      })) : []
+    }));
+    
+    const projectSessions = deserializedSessions.filter(session => session.projectId === projectId);
     console.log(`[ChatHistoryManager] Found ${projectSessions.length} sessions for project ${projectId}`);
     
     return projectSessions.sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime());
@@ -79,7 +90,22 @@ export class ChatHistoryManager {
     }
 
     const allSessions = this.context.workspaceState.get<ChatSession[]>(this.CHAT_HISTORY_KEY, []);
-    return allSessions.find(session => session.id === sessionId) || null;
+    const session = allSessions.find(session => session.id === sessionId);
+    
+    if (!session) {
+      return null;
+    }
+    
+    // Ensure dates are properly deserialized
+    return {
+      ...session,
+      createdAt: new Date(session.createdAt),
+      lastUpdatedAt: new Date(session.lastUpdatedAt),
+      messages: session.messages ? session.messages.map(msg => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      })) : []
+    };
   }
 
   /**
@@ -235,13 +261,21 @@ export class ChatHistoryManager {
   public getChatHistorySummary(projectId: string): Array<{id: string, name: string, lastUpdated: Date, messageCount: number}> {
     console.log(`[ChatHistoryManager] Getting chat history summary for project: ${projectId}`);
     const sessions = this.getChatSessions(projectId);
-    const summary = sessions.map(session => ({
-      id: session.id,
-      name: session.name,
-      lastUpdated: session.lastUpdatedAt,
-      messageCount: session.messages.length
-    }));
+    console.log(`[ChatHistoryManager] Found ${sessions.length} sessions for project ${projectId}`);
+    
+    const summary = sessions.map(session => {
+      const messageCount = session.messages ? session.messages.length : 0;
+      console.log(`[ChatHistoryManager] Session ${session.id} has ${messageCount} messages`);
+      return {
+        id: session.id,
+        name: session.name,
+        lastUpdated: session.lastUpdatedAt,
+        messageCount: messageCount
+      };
+    });
+    
     console.log(`[ChatHistoryManager] Returning summary with ${summary.length} sessions`);
+    console.log(`[ChatHistoryManager] Summary details:`, summary.map(s => `${s.name}: ${s.messageCount} messages`));
     return summary;
   }
 

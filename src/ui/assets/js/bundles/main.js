@@ -2,6 +2,9 @@
 import ModernChatUI from "./chat-ui.js";
 import MessageHandler from "./message-handler.js";
 
+// Acquire the VS Code API
+const vscode = acquireVsCodeApi();
+
 document.addEventListener("DOMContentLoaded", () => {
   const chatUI = new ModernChatUI(vscode);
   const messageHandler = new MessageHandler(chatUI);
@@ -19,8 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   setTimeout(() => {
-    // chatUI.focusInput();
+    chatUI.focusInput();
     chatUI.ensureInputWidth();
   }, 100);
 });
-
