@@ -6,6 +6,7 @@ export default class MessageHandler {
     this.chatUI = chatUI;
     this.activeToolStatusMessages = [];
     this.finalToolStatusMessage = null;
+    this.currentExecutionId = null;
   }
 
   removeTransientToolStatusMessages() {
@@ -20,6 +21,19 @@ export default class MessageHandler {
       this.activeToolStatusMessages = this.finalToolStatusMessage
         ? [this.finalToolStatusMessage]
         : [];
+    }
+    
+    // Also remove any existing status indicators for current execution
+    if (this.currentExecutionId) {
+      const existingStarting = this.chatUI.chatMessages.querySelector(
+        `[data-tool-id*="starting-${this.currentExecutionId}"]`
+      );
+      if (existingStarting) existingStarting.remove();
+      
+      const existingWorking = this.chatUI.chatMessages.querySelector(
+        `[data-tool-id*="working-${this.currentExecutionId}"]`
+      );
+      if (existingWorking) existingWorking.remove();
     }
   }
 
@@ -54,7 +68,8 @@ export default class MessageHandler {
           } else if (
             status === "completed" ||
             status === "failed" ||
-            status === "partial"
+            status === "partial" ||
+            status === "cancelled"
           ) {
             try {
               const elm = this.chatUI.chatMessages.querySelector('[data-working="true"]');
@@ -124,13 +139,22 @@ export default class MessageHandler {
   handleToolStatus(data) {
     const {
       status,
-      tools,
+      tools = [],
       totalCount,
       currentIndex,
       successCount,
       failedCount,
-      results,
+      results = [],
+      error = null,
+      batchMode = false,
     } = data.data;
+
+    // Initialize execution ID for new executions
+    if (!this.currentExecutionId || status === "starting") {
+      this.currentExecutionId = `execution-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+    }
 
     this.removeTransientToolStatusMessages();
 
@@ -187,8 +211,14 @@ export default class MessageHandler {
     const createToolStatusElement = (statusType, toolList, details = {}) => {
       const element = document.createElement("div");
       element.className = `tool-status ${statusType}`;
+      
+      // Add execution tracking
+      const executionPrefix = details.batchMode ? "batch" : "current";
+      element.setAttribute("data-tool-id", `${executionPrefix}-${statusType}-${this.currentExecutionId}`);
+      
       const mainTool = tools && tools.length > 0 ? tools[0] : "";
-      const mainIcon = getToolIcon(mainTool);
+      // Use cancelled icon for cancelled status, otherwise use tool-specific icon
+      const mainIcon = statusType === "cancelled" ? "tool-cancelled-icon" : getToolIcon(mainTool);
       let shouldBeExpandable = false;
       let actualFileCount = 0;
       if (results && results.length > 0) {
@@ -203,6 +233,7 @@ export default class MessageHandler {
       else if (statusType === "completed") title = `Completed: ${toolList}`;
       else if (statusType === "partial") title = `Partially Completed: ${toolList}`;
       else if (statusType === "failed") title = `Failed: ${toolList}`;
+      else if (statusType === "cancelled") title = `Cancelled: ${toolList}`;
       let progressHTML = "";
       if (statusType === "working") {
         progressHTML = `<div class="tool-progress"></div>`;
@@ -231,6 +262,10 @@ export default class MessageHandler {
             : `<span class=\"tool-status-badge\">${displayCount}/${displayTotal}</span>`;
         } else if (statusType === "failed") {
           badgeHTML = `<span class=\"tool-status-badge\">${failedCount || totalCount}/${totalCount}</span>`;
+        } else if (statusType === "cancelled") {
+          badgeHTML = successCount > 0 
+            ? `<span class=\"tool-status-badge\">${successCount}/${totalCount}</span>`
+            : `<span class=\"tool-status-badge\">Cancelled</span>`;
         }
       }
       let description = "";
@@ -240,6 +275,9 @@ export default class MessageHandler {
         description = `Processing ${currentIndex}/${totalCount}`;
       } else if (statusType === "failed") {
         description = "Operation failed";
+      } else if (statusType === "cancelled") {
+        const progressText = successCount > 0 ? ` (${successCount} completed)` : "";
+        description = `Operation cancelled${progressText}`;
       }
       let dropdownHTML = "";
       if (results && results.length > 0 && shouldBeExpandable) {
@@ -286,7 +324,7 @@ export default class MessageHandler {
     };
 
     const isFinalMessage = (statusType) => {
-      return ["completed", "failed", "partial"].includes(statusType);
+      return ["completed", "failed", "partial", "cancelled"].includes(statusType);
     };
 
     const addToolStatusMessage = (statusType, toolText, details = {}) => {
@@ -305,16 +343,25 @@ export default class MessageHandler {
     if (status === "starting") {
       let toolList = "Processing";
       if (tools && tools.length > 0) {
-        toolList = tools.length > 3
-          ? `${tools.slice(0, 3).join(", ")} and ${tools.length - 3} more`
-          : tools.join(", ");
+        if (batchMode) {
+          toolList = `${tools.length} operations`;
+        } else {
+          toolList = tools.length > 3
+            ? `${tools.slice(0, 3).join(", ")} and ${tools.length - 3} more`
+            : tools.join(", ");
+        }
       }
       try {
-        addToolStatusMessage("starting", toolList, { totalCount, tools });
+        addToolStatusMessage("starting", toolList, { totalCount, tools, batchMode });
       } catch (error) {}
     } else if (status === "working") {
-      const currentTool = tools && tools.length > 0 ? tools[0] : "Task";
-      addToolStatusMessage("working", currentTool, { totalCount, currentIndex, tools });
+      let toolList = "Task";
+      if (batchMode) {
+        toolList = `${tools.length} operations`;
+      } else {
+        toolList = tools && tools.length > 0 ? tools[0] : "Task";
+      }
+      addToolStatusMessage("working", toolList, { totalCount, currentIndex, tools, batchMode });
     } else if (status === "completed") {
       let toolList = "Task";
       if (tools && tools.length > 0) {
@@ -333,6 +380,15 @@ export default class MessageHandler {
         toolList = tools.length > 3 ? `${tools.length} operations` : tools.join(", ");
       }
       addToolStatusMessage("failed", toolList, { totalCount, failedCount, tools });
+    } else if (status === "cancelled") {
+      // Remove any existing status indicators for this execution
+      this.removeTransientToolStatusMessages();
+      
+      let toolList = "Tool execution";
+      if (tools && tools.length > 0) {
+        toolList = tools.length > 3 ? `${tools.length} operations` : tools.join(", ");
+      }
+      addToolStatusMessage("cancelled", toolList, { totalCount, successCount, tools });
     }
 
     if (status === "completed" || status === "partial" || status === "failed") {

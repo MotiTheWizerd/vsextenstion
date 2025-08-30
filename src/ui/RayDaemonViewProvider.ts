@@ -14,6 +14,12 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
+      // Reset cancellation state for new user message
+      const { CommandExecutorRegistry } = require("../extension_utils/commandExecutorRegistry");
+      const executor = CommandExecutorRegistry.getInstance().getCommandExecutor();
+      if (executor) {
+        executor.resetCancellationForNewMessage();
+      }
       // Show typing indicator
       console.log("[RayDaemon] Posting showTypingIndicator to webview.");
       this._view.webview.postMessage({

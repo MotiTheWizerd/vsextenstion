@@ -26,6 +26,11 @@ export class CommandExecutor {
     this.isCancelled = true;
   }
 
+  public resetCancellationForNewMessage(): void {
+    console.log('[RayDaemon] CommandExecutor: Resetting cancellation for new user message');
+    this.isCancelled = false;
+  }
+
   private resetCancellation(): void {
     this.isCancelled = false;
   }
@@ -64,7 +69,15 @@ export class CommandExecutor {
       `[RayDaemon] [${executionId}] Setting isExecutingTools = true and starting execution`,
     );
     this.isExecutingTools = true;
-    this.resetCancellation(); // Reset cancellation state for new execution
+    // Only reset cancellation if we're not already cancelled
+    // This prevents resetting cancellation when multiple command batches are sent
+    if (!this.isCancelled) {
+      console.log(`[RayDaemon] [${executionId}] Resetting cancellation state for new execution`);
+    } else {
+      console.log(`[RayDaemon] [${executionId}] Execution already cancelled, skipping this batch`);
+      this.isExecutingTools = false;
+      return;
+    }
     setActiveToolExecution(true);
     logInfo(
       `[RayDaemon] [${executionId}] Starting tool execution for ` +
