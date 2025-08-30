@@ -1,5 +1,6 @@
 export * from './apiClient';
 export * from './commandExecutor';
+export * from './commandExecutorRegistry';
 export * from './extensionManager';
 
 export * from './rayResponseHandler';

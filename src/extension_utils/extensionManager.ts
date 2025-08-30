@@ -5,6 +5,7 @@ import {
   CommandExecutor,
   ApiClient,
 } from ".";
+import { CommandExecutorRegistry } from "./commandExecutorRegistry";
 // Sidebar tree and view intentionally disabled
 // import { RayDaemonTreeProvider } from "../treeView";
 // import { RayDaemonViewProvider } from "../ui/RayDaemonViewProvider";
@@ -13,6 +14,7 @@ import { disposeGlobalDiagnosticWatcher } from "../commands/commandMethods/diagn
 import { registerCommands as registerAllCommands } from "../commands";
 import { setProcessRayResponseCallback } from "../rayLoop";
 import { setupEditorGuards } from "./editorGuards";
+import { SessionManager } from "../utils/sessionManager";
 
 export class ExtensionManager {
   private daemonInterval: NodeJS.Timeout | undefined;
@@ -31,6 +33,32 @@ export class ExtensionManager {
     }
     this.activated = true;
     console.log("[RayDaemon] Extension activated.");
+
+    // Initialize SessionManager with extension context
+    console.log("[RayDaemon] Initializing SessionManager...");
+    SessionManager.getInstance().initialize(this.context);
+    console.log("[RayDaemon] SessionManager initialized successfully");
+    
+    // Test chat history functionality
+    try {
+      const sessionManager = SessionManager.getInstance();
+      const existingHistory = sessionManager.getChatHistory();
+      console.log(`[RayDaemon] Found ${existingHistory.length} existing chat sessions`);
+      
+      // Test creating a session manually
+      console.log("[RayDaemon] Testing manual session creation...");
+      const testChatId = sessionManager.startNewChat("Test message");
+      console.log(`[RayDaemon] Created test session: ${testChatId}`);
+      
+      // Check if it was saved
+      const updatedHistory = sessionManager.getChatHistory();
+      console.log(`[RayDaemon] After test creation, found ${updatedHistory.length} chat sessions`);
+    } catch (error) {
+      console.error("[RayDaemon] Error testing chat history:", error);
+      if (error instanceof Error) {
+        console.error("[RayDaemon] Error stack:", error.stack);
+      }
+    }
 
     this.setupRayResponseHandling();
     this.startDaemon();
@@ -54,6 +82,8 @@ export class ExtensionManager {
 
   private setupRayResponseHandling(): void {
     this.commandExecutor = new CommandExecutor();
+    // Register the CommandExecutor globally for cancellation access
+    CommandExecutorRegistry.getInstance().setCommandExecutor(this.commandExecutor);
     this.rayResponseHandler = new RayResponseHandler(this.commandExecutor);
     setProcessRayResponseCallback(
       this.rayResponseHandler.processRayResponse.bind(this.rayResponseHandler),

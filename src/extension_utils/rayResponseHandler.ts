@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { logInfo, logError } from "../logging";
 import type { RayResponse } from "../types/messages";
+import { SessionManager } from "../utils/sessionManager";
 import { sendCommandResultsToRay } from "../rayLoop";
 import { CommandExecutor } from ".";
 import { WebviewRegistry } from "../ui/webview-registry";
@@ -69,6 +70,73 @@ export class RayResponseHandler {
     }
 
     const payload = rayResponse as RayResponse;
+    // Track task_id for cancellation
+    if (payload.task_id) {
+      SessionManager.getInstance().setLastTaskId(payload.task_id);
+    }
+    
+    // Sync session information from Ray API with local chat history
+    console.log("[RayDaemon] Starting chat history sync...");
+    try {
+      const sessionManager = SessionManager.getInstance();
+      
+      // Check if Ray provided session info
+      console.log("[RayDaemon] Checking for Ray session info...");
+      console.log("[RayDaemon] payload.session_info:", payload.session_info);
+      console.log("[RayDaemon] payload.chat_id:", payload.chat_id);
+      console.log("[RayDaemon] payload.project_id:", payload.project_id);
+      
+      if (payload.session_info || (payload.chat_id && payload.project_id)) {
+        const raySessionInfo = payload.session_info || {
+          chat_id: payload.chat_id,
+          project_id: payload.project_id,
+          user_id: payload.user_id
+        };
+        
+        console.log("[RayDaemon] Syncing Ray session info:", raySessionInfo);
+        
+        // Update our session manager with Ray's session IDs
+        if (raySessionInfo.chat_id) {
+          console.log("[RayDaemon] Checking if session exists:", raySessionInfo.chat_id);
+          
+          // Ensure we have valid chat_id and project_id
+          if (raySessionInfo.chat_id && raySessionInfo.project_id) {
+            // Check if we have this session in our history
+            const existingSession = sessionManager.loadChatSession(raySessionInfo.chat_id);
+            console.log("[RayDaemon] Existing session found:", !!existingSession);
+            
+            if (!existingSession) {
+              console.log("[RayDaemon] Creating new chat session from Ray session info");
+              // Create a new session using Ray's chat_id
+              sessionManager.createChatSessionFromRay(raySessionInfo.chat_id, raySessionInfo.project_id);
+            } else {
+              console.log("[RayDaemon] Using existing Ray session");
+            }
+          } else {
+            console.log("[RayDaemon] Invalid Ray session info - missing chat_id or project_id");
+          }
+        }
+      } else {
+        console.log("[RayDaemon] No Ray session info found in payload");
+      }
+      
+      // Add assistant response to chat history if we have content
+      const content = this.extractContent(payload);
+      console.log("[RayDaemon] Extracted content length:", content?.length || 0);
+      if (content && content.trim().length > 0) {
+        console.log("[RayDaemon] Adding assistant response to chat history");
+        sessionManager.addMessageToHistory("assistant", content);
+      } else {
+        console.log("[RayDaemon] No content to add to chat history");
+      }
+    } catch (error) {
+      console.error("[RayDaemon] Error syncing chat history:", error);
+      if (error instanceof Error) {
+        console.error("[RayDaemon] Error stack:", error.stack);
+      }
+    }
+    console.log("[RayDaemon] Chat history sync completed");
+    
     console.log(
       "[RayDaemon] Processing ray response, payload keys:",
       Object.keys(payload),

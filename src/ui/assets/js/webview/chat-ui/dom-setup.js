@@ -15,17 +15,33 @@ export function updateChatInputStructure(ui) {
     inputContainer.appendChild(wrapper);
   }
 
-  if (ui.statusBar && !ui.statusBar.querySelector(".status-indicator")) {
-    ui.statusBar.innerHTML = `
-      <div class="status-indicator"></div>
-      <span>RayDaemon is ready</span>
-    `;
+  // Initialize action bar buttons
+  const actionBar = document.getElementById("actionBar");
+  if (actionBar) {
+    const newChatButton = document.getElementById("newChatButton");
+    const historyButton = document.getElementById("historyButton");
+    
+    if (newChatButton) {
+      newChatButton.addEventListener("click", () => {
+        ui.handleNewChat();
+      });
+    }
+    
+    if (historyButton) {
+      console.log("Setting up history button event listener");
+      historyButton.addEventListener("click", () => {
+        console.log("History button clicked!");
+        ui.handleChatHistory();
+      });
+    } else {
+      console.log("History button not found in DOM!");
+    }
   }
 }
 
 export function setStatus(ui, status) {
-  const statusText = ui.statusBar?.querySelector("span");
-  if (statusText) statusText.textContent = status;
+  // Status functionality removed - replaced with action bar
+  console.log("Status update (deprecated):", status);
 }
 
 export function adjustTextareaHeight(ui) {

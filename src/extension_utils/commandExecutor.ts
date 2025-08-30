@@ -15,9 +15,19 @@ import { setActiveToolExecution } from "../rayLoop";
 export class CommandExecutor {
   private isExecutingTools = false;
   private fileManager: FileManager;
+  private isCancelled = false;
 
   constructor() {
     this.fileManager = new FileManager();
+  }
+
+  public cancelExecution(): void {
+    console.log('[RayDaemon] CommandExecutor: Cancellation requested');
+    this.isCancelled = true;
+  }
+
+  private resetCancellation(): void {
+    this.isCancelled = false;
   }
 
   async executeCommandCallsAndSendResults(
@@ -54,6 +64,7 @@ export class CommandExecutor {
       `[RayDaemon] [${executionId}] Setting isExecutingTools = true and starting execution`,
     );
     this.isExecutingTools = true;
+    this.resetCancellation(); // Reset cancellation state for new execution
     setActiveToolExecution(true);
     logInfo(
       `[RayDaemon] [${executionId}] Starting tool execution for ` +
@@ -69,7 +80,25 @@ export class CommandExecutor {
         commandCalls,
         toolNames,
         this.fileManager,
+        () => this.isCancelled, // Pass cancellation check function
       );
+
+      // Check if execution was cancelled
+      if (this.isCancelled) {
+        console.log(
+          `[RayDaemon] [${executionId}] Execution was cancelled, skipping result processing`,
+        );
+        await showFinalStatus(toolNames, results, true); // Show cancelled status
+        this.isExecutingTools = false;
+        setActiveToolExecution(false);
+        
+        // Notify UI about cancellation - hideTyping will reset the UI state
+        const { hideTyping } = require("../extension_utils/uiNotifier");
+        hideTyping(); // Don't show duplicate message here since cancel handler already shows it
+        
+        logInfo(`[RayDaemon] [${executionId}] Tool execution cancelled by user`);
+        return;
+      }
 
       await this.fileManager.autoOpenModifiedFiles(results);
       await showFinalStatus(toolNames, results);

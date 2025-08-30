@@ -8,4 +8,5 @@
 @import "./webviewCssStyles/responsive.css";
 @import "./webviewCssStyles/scroll-bar.css";
 @import "./webviewCssStyles/code-block.css";
+@import "./webviewCssStyles/chat-history-modal.css";
 @import "./file-icons.css";

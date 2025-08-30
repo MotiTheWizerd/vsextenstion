@@ -1,5 +1,6 @@
 import { logInfo, logError } from "../../../logging";
 import { sendCommandResultsToRay, setActiveToolExecution } from "../../../rayLoop";
+import { hideTyping } from "../../../extension_utils/uiNotifier";
 
 export async function handleExecutionError(
   content: string,
@@ -34,6 +35,6 @@ export async function handleExecutionError(
       rayError,
     );
     setActiveToolExecution(false);
+    hideTyping("Server error while reporting failure. Stopped waiting.");
   }
 }
-

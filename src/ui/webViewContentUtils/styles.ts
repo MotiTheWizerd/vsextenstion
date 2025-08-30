@@ -28,6 +28,7 @@ export function getStyles(extensionContext: vscode.ExtensionContext, customCSS: 
     "src/ui/assets/css/webviewCssStyles/inputUtils/send-button.css",
     "src/ui/assets/css/webviewCssStyles/tool-status.css",
     "src/ui/assets/css/webviewCssStyles/tool-dropdown.css",
+    "src/ui/assets/css/webviewCssStyles/chat-history-modal.css",
   ];
 
   let cssContent = "";

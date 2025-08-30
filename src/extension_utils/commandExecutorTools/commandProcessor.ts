@@ -4,11 +4,32 @@ import { commandHandlers } from '../../commands/commandHandler';
 import { updateExecutionProgress } from './toolStatusNotifier';
 import { FileManager } from './fileManager';
 
-export async function executeCommands(commandCalls: any[], toolNames: string[], fileManager: FileManager): Promise<any[]> {
+export async function executeCommands(
+    commandCalls: any[], 
+    toolNames: string[], 
+    fileManager: FileManager,
+    isCancelled?: () => boolean
+): Promise<any[]> {
     const results: any[] = [];
     const { executeOne } = createExecuteCommandFactory(commandHandlers);
 
     for (let i = 0; i < commandCalls.length; i++) {
+        // Check for cancellation before each command
+        if (isCancelled && isCancelled()) {
+            console.log(`[RayDaemon] Command execution cancelled at step ${i + 1}/${commandCalls.length}`);
+            // Add cancelled status for remaining commands
+            for (let j = i; j < commandCalls.length; j++) {
+                results.push({
+                    command: commandCalls[j].command,
+                    args: commandCalls[j].args || [],
+                    ok: false,
+                    error: 'Execution cancelled by user',
+                    cancelled: true
+                });
+            }
+            break;
+        }
+
         const call = commandCalls[i];
         const toolName = toolNames[i];
 

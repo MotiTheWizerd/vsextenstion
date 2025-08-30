@@ -47,6 +47,30 @@ export default class ModernChatUI {
         <span>RayDaemon is ready</span>
       `;
     }
+
+    // Initialize action bar buttons
+    const actionBar = document.getElementById("actionBar");
+    if (actionBar) {
+      const newChatButton = document.getElementById("newChatButton");
+      const historyButton = document.getElementById("historyButton");
+      
+      if (newChatButton) {
+        console.log("Setting up new chat button event listener");
+        newChatButton.addEventListener("click", () => {
+          this.handleNewChat();
+        });
+      }
+      
+      if (historyButton) {
+        console.log("Setting up history button event listener");
+        historyButton.addEventListener("click", () => {
+          console.log("History button clicked!");
+          this.handleChatHistory();
+        });
+      } else {
+        console.log("History button not found in DOM!");
+      }
+    }
   }
 
   postMessage(message) {
@@ -54,7 +78,16 @@ export default class ModernChatUI {
   }
 
   initializeEventListeners() {
-    this.sendButton.addEventListener("click", () => this.handleSendMessage());
+    this.sendButton.addEventListener("click", () => {
+      const state = this.sendButton.getAttribute("data-state");
+      if (state === "working") {
+        try {
+          this.postMessage({ command: "cancelAgent" });
+        } catch (_) {}
+        return;
+      }
+      this.handleSendMessage();
+    });
     this.chatInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -95,8 +128,8 @@ export default class ModernChatUI {
   }
 
   updateSendButton() {
-    const hasText = this.chatInput.value.trim().length > 0;
-    this.sendButton.disabled = !hasText;
+    // Keep button always enabled (acts as send/stop visually)
+    try { this.sendButton.disabled = false; } catch (_) {}
   }
 
   handleSendMessage() {
@@ -224,6 +257,59 @@ export default class ModernChatUI {
       clearTimeout(this.typingTimeout);
     }
     this.typingIndicator.classList.toggle("show", show);
+    if (this.sendButton) {
+      this.sendButton.setAttribute("data-state", show ? "working" : "idle");
+    }
+    // Global working state (shim if not present)
+    try {
+      if (!window.AgentWork) {
+        (function initAgentWorkShim() {
+          let working = false;
+          const subscribers = new Set();
+          function notify() {
+            try {
+              document.documentElement?.toggleAttribute(
+                "data-agent-working",
+                working,
+              );
+            } catch (_) {}
+            try {
+              window.dispatchEvent(
+                new CustomEvent("agent:working-changed", { detail: { working } }),
+              );
+            } catch (_) {}
+            subscribers.forEach((fn) => {
+              try {
+                fn(working);
+              } catch (e) {
+                console.error("[AgentWork] subscriber error", e);
+              }
+            });
+          }
+          window.AgentWork = {
+            setWorking(val) {
+              const next = !!val;
+              if (next === working) {return;}
+              working = next;
+              notify();
+            },
+            isWorking() {
+              return !!working;
+            },
+            subscribe(fn) {
+              if (typeof fn === "function") {subscribers.add(fn);}
+              return () => subscribers.delete(fn);
+            },
+            unsubscribe(fn) {
+              subscribers.delete(fn);
+            },
+          };
+        })();
+      }
+      window.AgentWork.setWorking(!!show);
+    } catch (_) {}
+    // Ensure button enable state reflects working immediately
+    try { this.updateSendButton(); } catch (_) {}
     if (show) {
       this.scrollToBottom();
     }
@@ -268,5 +354,144 @@ export default class ModernChatUI {
     this.chatInput?.focus();
     this.ensureInputWidth();
   }
-}
 
+  // Chat history functionality
+  handleChatHistory() {
+    console.log("Chat history clicked - opening history modal");
+    console.log("Posting getChatHistory command to extension");
+    this.showChatHistoryModal();
+  }
+
+  handleNewChat() {
+    console.log("New chat clicked");
+    this.postMessage({ command: "newChat" });
+  }
+
+  showChatHistoryModal() {
+    console.log("Requesting chat history from extension");
+    this.postMessage({ command: "getChatHistory" });
+  }
+
+  displayChatHistoryModal(chatHistory) {
+    try {
+      console.log("Displaying chat history modal with data:", chatHistory);
+      console.log("First session structure:", chatHistory && chatHistory[0]);
+      
+      // Remove existing modal if any
+      const existingModal = document.querySelector('.chat-history-modal');
+      if (existingModal) {
+        console.log("Removing existing modal");
+        existingModal.remove();
+      }
+
+      // Create modal HTML
+      console.log("Creating modal element");
+      const modal = document.createElement('div');
+      modal.className = 'chat-history-modal';
+      console.log("Setting modal innerHTML");
+      modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Chat History</h3>
+          <button class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+          ${chatHistory && chatHistory.length > 0 
+            ? chatHistory.map(session => {
+                // Generate better title from first user message
+                let title = session.title || 'New Chat';
+                if (session.messages && session.messages.length > 0) {
+                  const firstUserMessage = session.messages.find(msg => msg.role === 'user');
+                  if (firstUserMessage && firstUserMessage.content) {
+                    title = firstUserMessage.content.substring(0, 50);
+                    if (firstUserMessage.content.length > 50) {title += '...';}
+                  }
+                }
+                
+                // Generate better preview from last messages
+                let preview = 'No messages yet';
+                if (session.messages && session.messages.length > 0) {
+                  const lastMessage = session.messages[session.messages.length - 1];
+                  if (lastMessage && lastMessage.content) {
+                    preview = lastMessage.content.substring(0, 80);
+                    if (lastMessage.content.length > 80) {preview += '...';}
+                  }
+                }
+                
+                // Format date better
+                const date = new Date(session.lastUpdated);
+                const now = new Date();
+                const diffTime = Math.abs(now - date);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                let dateStr;
+                if (diffDays === 1) {
+                  dateStr = 'Today';
+                } else if (diffDays === 2) {
+                  dateStr = 'Yesterday';
+                } else if (diffDays <= 7) {
+                  dateStr = `${diffDays - 1} days ago`;
+                } else {
+                  dateStr = date.toLocaleDateString();
+                }
+                
+                return `
+                  <div class="chat-session" data-chat-id="${session.chatId}">
+                    <div class="session-content">
+                      <div class="session-title">${title}</div>
+                      <div class="session-preview">${preview}</div>
+                    </div>
+                    <div class="session-meta">
+                      <div class="session-date">${dateStr}</div>
+                      <div class="session-count">${session.messages ? session.messages.length : 0} messages</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')
+            : '<div class="no-sessions">No chat history found</div>'
+          }
+        </div>
+      </div>
+    `;
+
+    // Add to DOM
+    console.log("Adding modal to DOM");
+    document.body.appendChild(modal);
+    console.log("Modal added to DOM, checking visibility");
+    console.log("Modal element:", modal);
+    const computedStyle = window.getComputedStyle(modal);
+    console.log("Modal display:", computedStyle.display);
+    console.log("Modal position:", computedStyle.position);
+    console.log("Modal z-index:", computedStyle.zIndex);
+    console.log("Modal opacity:", computedStyle.opacity);
+    console.log("Modal visibility:", computedStyle.visibility);
+    console.log("Modal background-color:", computedStyle.backgroundColor);
+
+    // Add event listeners
+    const closeButton = modal.querySelector('.close-button');
+    closeButton.addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+
+    // Handle session clicks
+    const sessions = modal.querySelectorAll('.chat-session');
+    sessions.forEach(session => {
+      session.addEventListener('click', () => {
+        const chatId = session.getAttribute('data-chat-id');
+        console.log("Loading chat session:", chatId);
+        this.postMessage({ command: "loadChatSession", chatId });
+        modal.remove();
+      });
+    });
+    } catch (error) {
+      console.error("Error displaying chat history modal:", error);
+    }
+  }
+}

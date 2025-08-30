@@ -40,6 +40,19 @@ export interface RayResponse {
   command_calls?: CommandCall[]; // When present: must be executed locally
   commandCalls?: CommandCall[]; // legacy alias
   command_results?: CommandResult[]; // Optional server summaries
+
+  // Task tracking
+  task_id?: string; // Identifier for current agent run (used for cancellation)
+
+  // Session information (for chat history sync)
+  session_info?: {
+    chat_id: string;
+    project_id: string;
+    user_id: string;
+  };
+  chat_id?: string;
+  project_id?: string;
+  user_id?: string;
 }
 
 // Type guards
@@ -58,4 +71,3 @@ export function isFinalFlag(v: boolean | string | undefined): boolean {
   if (typeof v === "string") return v === "true";
   return !!v;
 }
-

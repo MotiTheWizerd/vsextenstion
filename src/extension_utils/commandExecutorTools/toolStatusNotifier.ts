@@ -184,26 +184,29 @@ export async function updateExecutionProgress(
 export async function showFinalStatus(
   toolNames: string[],
   results: any[],
+  cancelled: boolean = false,
 ): Promise<void> {
   console.log(
-    `[toolStatusNotifier] showFinalStatus called with ${results.length} results`,
+    `[toolStatusNotifier] showFinalStatus called with ${results.length} results, cancelled: ${cancelled}`,
   );
   const successCount = results.filter((r) => r.ok).length;
   const failedCount = results.length - successCount;
+  const cancelledCount = results.filter((r) => r.cancelled).length;
   console.log(
-    `[toolStatusNotifier] Success: ${successCount}, Failed: ${failedCount}`,
+    `[toolStatusNotifier] Success: ${successCount}, Failed: ${failedCount}, Cancelled: ${cancelledCount}`,
   );
   const currentPanel = getCurrentPanel();
   if (currentPanel) {
     const message = {
       type: "toolStatus",
       data: {
-        status:
-          failedCount > 0
-            ? successCount > 0
-              ? "partial"
-              : "failed"
-            : "completed",
+        status: cancelled
+          ? "cancelled"
+          : failedCount > 0
+          ? successCount > 0
+            ? "partial"
+            : "failed"
+          : "completed",
         tools: toolNames,
         toolTypes: toolNames.map((tool) => getToolCategory(tool)),
         totalCount: results.length,
@@ -218,12 +221,13 @@ export async function showFinalStatus(
           error: result.error,
         })),
         batchMode: true,
-        description:
-          failedCount > 0
-            ? successCount > 0
-              ? `Completed with ${successCount} successful and ${failedCount} failed operations`
-              : `Failed to complete operations`
-            : `Successfully completed all ${successCount} operations`,
+        description: cancelled
+          ? `Operation cancelled by user after ${successCount} successful operations`
+          : failedCount > 0
+          ? successCount > 0
+            ? `Completed with ${successCount} successful and ${failedCount} failed operations`
+            : `Failed to complete operations`
+          : `Successfully completed all ${successCount} operations`,
         timestamp: new Date().toISOString(),
         category: getToolCategory(toolNames[0] || ""),
         duration:

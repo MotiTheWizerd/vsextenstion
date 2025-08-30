@@ -10,6 +10,33 @@ RayDaemon is built as a VS Code extension with a webview-based chat interface su
 4. **Session Layer** (`src/utils/sessionManager.ts`): Project and chat session management
 5. **Registry** (`src/ui/webview-registry.ts`): Central registry for the single, primary chat panel
 
+## UI State: Agent Working & Send Button
+
+- Global working state is exposed in the webview via `window.AgentWork`.
+  - Source: `src/ui/assets/js/webview/agent-state.js:1`
+  - Emits `agent:working-changed` and sets `[data-agent-working]` on `<html>`.
+- The send button toggles icons based on `data-state`:
+  - Idle: paper plane; Working: red stop square.
+  - HTML: `src/ui/webViewContentUtils/html.ts:115`
+  - CSS: `src/ui/assets/css/webviewCssStyles/inputUtils/send-button.css:1`
+- The runtime bundle wires working state from `showTypingIndicator` and keeps the button enabled:
+  - Bundle: `src/ui/assets/js/bundles/chat-ui.js:224`, `src/ui/assets/js/bundles/chat-ui.js:97`
+- Modular sources are mirrored for parity:
+  - `src/ui/assets/js/webview/chat-ui/messages.js:143`
+  - `src/ui/assets/js/webview/chat-ui/messages.js:149`
+
+For details and usage examples, see `docs/SEND_BUTTON_AND_WORKING_STATE.md:1`.
+
+## API: Cancellation
+- Endpoint: `POST /api/agent/stop` (see cancel.md for server semantics)
+- Client:
+  - `src/api/agent.ts: cancelAgent()` builds payload with `task_id` (from `SessionManager`) or `chat_id` and posts to server.
+  - `src/config.ts: getCancelEndpoint()` derives endpoint from `apiEndpoint` unless `cancelEndpoint` is set.
+- Task tracking:
+  - `src/types/messages.ts` adds optional `task_id` to `RayResponse`.
+  - `src/utils/sessionManager.ts` stores `lastTaskId` with getters/setters.
+  - `src/rayLoop.ts` and `src/extension_utils/rayResponseHandler.ts` capture `task_id` from responses.
+
 ## API Message Structure
 
 RayDaemon uses a simplified JSON structure for communication with Ray API:

@@ -112,14 +112,24 @@ export function getHtml(
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
                     </svg>
                   </button>
-                  <button id="sendButton" ${
+                  <button id="sendButton" data-state="idle" ${
                     !config.showChatInput ? "disabled" : ""
                   }>
                     <div class="send-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
+                      <!-- Modern arrow/rocket icon -->
+                      <div class="icon-send" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2L22 12L12 22L12 16L2 12L12 8L12 2Z" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"/>
+                          <path d="M12 8V16" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+                        </svg>
+                      </div>
+                      <!-- Modern stop icon with rounded corners -->
+                      <div class="icon-stop" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <rect x="5" y="5" width="14" height="14" rx="3" ry="3" fill="currentColor"/>
+                          <rect x="7" y="7" width="10" height="10" rx="2" ry="2" fill="white" opacity="0.9"/>
+                        </svg>
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -136,9 +146,19 @@ export function getHtml(
         config.showStatusBar
           ? `
       <div class="footer">
-        <div id="statusBar" class="status-bar">
-          <div class="status-indicator"></div>
-          <span>${escapeHtml(config.initialStatus)}</span>
+        <div id="actionBar" class="action-bar">
+          <button id="newChatButton" class="action-button" title="New Chat">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <button id="historyButton" class="action-button" title="Chat History">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12,6 12,12 16,14"></polyline>
+            </svg>
+          </button>
         </div>
       </div>
       `

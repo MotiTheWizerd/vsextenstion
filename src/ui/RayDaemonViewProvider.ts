@@ -36,6 +36,11 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
           "[RayDaemon] Posting addMessage to webview with response:",
           response,
         );
+        
+        // Add assistant response to history
+        const { SessionManager } = require("../utils/sessionManager");
+        SessionManager.getInstance().addMessageToHistory("assistant", response);
+        
         this._view.webview.postMessage({
           type: "addMessage",
           role: "assistant",
@@ -211,6 +216,26 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
               message.message,
             );
             if (message.message) {
+              // Ensure we have an active chat session
+              const { SessionManager } = require("../utils/sessionManager");
+              const sessionManager = SessionManager.getInstance();
+              const sessionInfo = sessionManager.getSessionInfo();
+              
+              console.log("[RayDaemon] Current session info:", sessionInfo);
+              
+              // Check if this session exists in history
+              const existingSession = sessionManager.loadChatSession(sessionInfo.chatId);
+              console.log("[RayDaemon] Existing session found:", !!existingSession);
+              
+              if (!existingSession) {
+                console.log("[RayDaemon] Creating new chat session with first message");
+                sessionManager.startNewChat(message.message);
+              } else {
+                console.log("[RayDaemon] Using existing session, adding message to history");
+                // Add message to history
+                sessionManager.addMessageToHistory("user", message.message);
+              }
+              
               // Handle chat message from user
               console.log(
                 "[RayDaemon] Calling handleChatMessage with:",
@@ -221,6 +246,122 @@ export class RayDaemonViewProvider implements vscode.WebviewViewProvider {
               console.log(
                 "[RayDaemon] No message content in sendMessage command",
               );
+            }
+            break;
+
+          case "getChatHistory":
+            console.log("[RayDaemon] Received getChatHistory command");
+            try {
+              const { SessionManager } = require("../utils/sessionManager");
+              const sessionManager = SessionManager.getInstance();
+              const chatHistory = sessionManager.getChatHistory();
+              console.log("[RayDaemon] Retrieved chat history:", chatHistory);
+              
+              this._view?.webview.postMessage({
+                type: "chatHistory",
+                data: chatHistory
+              });
+              console.log("[RayDaemon] Sent chat history to webview");
+            } catch (error) {
+              console.error("[RayDaemon] Error getting chat history:", error);
+              if (error instanceof Error) {
+                console.error("[RayDaemon] Error stack:", error.stack);
+              }
+            }
+            break;
+
+          case "loadChatSession":
+            console.log("[RayDaemon] Received loadChatSession command:", message.sessionId);
+            try {
+              const { SessionManager } = require("../utils/sessionManager");
+              const session = SessionManager.getInstance().loadChatSession(message.sessionId);
+              if (session) {
+                this._view?.webview.postMessage({
+                  type: "loadChatSession",
+                  data: session
+                });
+              }
+            } catch (error) {
+              console.error("[RayDaemon] Error loading chat session:", error);
+            }
+            break;
+
+          case "deleteChatSession":
+            console.log("[RayDaemon] Received deleteChatSession command:", message.sessionId);
+            try {
+              const { SessionManager } = require("../utils/sessionManager");
+              const success = SessionManager.getInstance().deleteChatSession(message.sessionId);
+              if (success) {
+                console.log("[RayDaemon] Chat session deleted successfully");
+              }
+            } catch (error) {
+              console.error("[RayDaemon] Error deleting chat session:", error);
+            }
+            break;
+
+          case "startNewChat":
+            console.log("[RayDaemon] Received startNewChat command");
+            try {
+              const { SessionManager } = require("../utils/sessionManager");
+              const newChatId = SessionManager.getInstance().startNewChat();
+              console.log("[RayDaemon] Started new chat session:", newChatId);
+            } catch (error) {
+              console.error("[RayDaemon] Error starting new chat:", error);
+            }
+            break;
+
+          case "webviewReady":
+            console.log("[RayDaemon] Webview ready, initializing chat session");
+            try {
+              const { SessionManager } = require("../utils/sessionManager");
+              const sessionManager = SessionManager.getInstance();
+              
+              // Ensure we have a project and chat session
+              const sessionInfo = sessionManager.getSessionInfo();
+              console.log("[RayDaemon] Current session info:", sessionInfo);
+              
+              // Send initial state to webview if needed
+              this._view?.webview.postMessage({
+                type: "sessionReady",
+                data: sessionInfo
+              });
+            } catch (error) {
+              console.error("[RayDaemon] Error initializing session:", error);
+            }
+            break;
+          case "cancelAgent":
+            try {
+              const { cancelAgent } = require("../api/agent");
+              const { CommandExecutorRegistry } = require("../extension_utils/commandExecutorRegistry");
+              
+              // Cancel both server-side and local tool execution
+              const result = await cancelAgent();
+              CommandExecutorRegistry.getInstance().cancelCurrentExecution();
+              
+              // Reset UI state
+              this._view?.webview.postMessage({ command: "showTyping", typing: false });
+              
+              // Show cancellation status if no tools are executing (fallback for regular conversations)
+              const { isActiveToolExecution } = require("../rayLoop");
+              if (!isActiveToolExecution()) {
+                this._view?.webview.postMessage({
+                  type: "toolStatus",
+                  data: {
+                    status: "cancelled",
+                    tools: ["Request"],
+                    totalCount: 1,
+                    description: "Request canceled by user",
+                    timestamp: new Date().toISOString(),
+                    category: "default"
+                  }
+                });
+              }
+            } catch (err) {
+              console.error("[RayDaemon] Cancel request failed:", err);
+              this._view?.webview.postMessage({
+                command: "chatError",
+                error: "Failed to send cancel request.",
+              });
             }
             break;
           default:

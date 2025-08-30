@@ -69,6 +69,21 @@ export function routeIncomingMessage({ chatUI, toolStatusHandler }, message) {
     return;
   }
 
+  if (message.type === "chatHistory" && message.data) {
+    console.log("Received chat history data:", message.data);
+    console.log("Chat history length:", message.data.length);
+    chatUI.displayChatHistoryModal(message.data);
+    console.groupEnd();
+    return;
+  }
+
+  if (message.type === "loadChatSession" && message.data) {
+    console.log("Loading chat session:", message.data);
+    chatUI.loadChatSessionMessages(message.data);
+    console.groupEnd();
+    return;
+  }
+
   if (message.command) {
     try {
       console.log(`[Webview] Processing command: ${message.command}`);

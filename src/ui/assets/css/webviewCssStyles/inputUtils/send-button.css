@@ -1,54 +1,236 @@
 #sendButton {
-  width: 32px;
-  height: 32px;
-  background: var(--button-bg);
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border: none;
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3), 0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#sendButton::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#sendButton::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.3) 0%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.3s ease;
+  pointer-events: none;
 }
 
 #sendButton:hover:not(:disabled) {
-  background: var(--button-hover);
-  transform: scale(1.05);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+#sendButton:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+#sendButton:hover:not(:disabled)::after {
+  width: 20px;
+  height: 20px;
 }
 
 #sendButton:active:not(:disabled) {
-  transform: scale(0.95);
+  transform: translateY(-1px) scale(0.95);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 #sendButton:disabled {
   opacity: 0.4;
   cursor: not-allowed;
   transform: none;
-  background: color-mix(
-    in srgb,
-    var(--vscode-input-foreground) 30%,
-    transparent 70%
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
   );
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* Send button icon */
 .send-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 .send-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Better button positioning */
+/* Icon swap: send vs stop */
+.send-icon .icon-send,
+.send-icon .icon-stop {
+  width: 18px;
+  height: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Idle state - show send icon */
+#sendButton[data-state="idle"] .icon-send {
+  display: flex;
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  color: white;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.3));
+}
+#sendButton[data-state="idle"] .icon-stop {
+  display: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(180deg) scale(0.6);
+}
+
+/* Hover effect for send icon */
+#sendButton[data-state="idle"]:hover:not(:disabled) .icon-send {
+  transform: translate(-50%, -50%) rotate(-5deg) scale(1.1);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+}
+
+/* Working state - show stop icon */
+#sendButton[data-state="working"] .icon-send {
+  display: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-180deg) scale(0.6);
+}
+#sendButton[data-state="working"] .icon-stop {
+  display: flex;
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+}
+
+/* Working state styling */
+#sendButton[data-state="working"] {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  border-color: rgba(255, 107, 107, 0.4);
+  animation: pulse-working 2s ease-in-out infinite;
+  box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4), 0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#sendButton[data-state="working"]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ee5a52 0%, #ff6b6b 100%);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 30px rgba(255, 107, 107, 0.5), 0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+#sendButton[data-state="working"] .icon-stop {
+  color: white;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+}
+
+/* Pulse animation for working state */
+@keyframes pulse-working {
+  0%,
+  100% {
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(255, 107, 107, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(255, 107, 107, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 6px rgba(255, 107, 107, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Better button positioning and focus states */
 #sendButton {
   align-self: flex-end;
   margin-bottom: 0;
+}
+
+#sendButton:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+#sendButton:focus:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* Smooth state transitions */
+#sendButton * {
+  transition: inherit;
+}
+
+/* Enhanced disabled state */
+#sendButton:disabled::before {
+  display: none;
+}
+
+#sendButton:disabled .send-icon {
+  opacity: 0.6;
+}
+
+/* Loading state micro-animation */
+#sendButton[data-state="working"] .icon-stop {
+  animation: working-icon-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes working-icon-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.8;
+  }
 }

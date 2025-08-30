@@ -1,7 +1,14 @@
 // Wiring of DOM event listeners for ModernChatUI
 
 export function initializeEventListeners(ui) {
-  ui.sendButton.addEventListener("click", () => ui.handleSendMessage());
+  ui.sendButton.addEventListener("click", () => {
+    const state = ui.sendButton.getAttribute("data-state");
+    if (state === "working") {
+      try { ui.postMessage({ command: "cancelAgent" }); } catch (_) {}
+      return;
+    }
+    ui.handleSendMessage();
+  });
 
   ui.initializeDropdowns();
 
@@ -41,4 +48,3 @@ export function initializeEventListeners(ui) {
 
   ui.chatInput.addEventListener("focus", () => ui.ensureInputWidth());
 }
-

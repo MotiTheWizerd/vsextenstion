@@ -43,24 +43,29 @@ class ModernChatUI {
 - History navigation (up/down arrows)
 - Dynamic width adjustment
 
-### 3. Status Bar
+### 3. Action Bar
 
 ```javascript
 class ModernChatUI {
-  setStatus(status) {
-    const statusText = this.statusBar?.querySelector("span");
-    if (statusText) {
-      statusText.textContent = status;
-    }
+  handleNewChat() {
+    this.clearChat();
+    this.messageHistory = [];
+    this.historyIndex = -1;
+    this.focusInput();
+  }
+
+  handleChatHistory() {
+    // Placeholder for future chat history functionality
+    console.log("Chat history clicked - feature coming soon!");
   }
 }
 ```
 
 #### Features:
-- Status indicator dot
-- Status text display
-- Dynamic updates
-- Visual feedback
+- New chat button (+ icon) - clears current conversation
+- Chat history button (clock icon) - placeholder for future functionality
+- Modern button styling with hover effects
+- Centered layout in footer
 
 ### 4. Typing Indicator
 

@@ -70,6 +70,10 @@ export default class MessageHandler {
       case "statusUpdate":
         this.chatUI.setStatus(data.content);
         break;
+      case "chatHistory":
+        console.log("Received chat history response:", data.data);
+        this.chatUI.displayChatHistoryModal(data.data);
+        break;
       default:
         break;
     }

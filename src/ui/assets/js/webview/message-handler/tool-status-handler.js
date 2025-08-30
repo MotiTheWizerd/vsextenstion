@@ -298,6 +298,40 @@ export default class ToolStatusHandler {
           </div>`;
         }
       }
+    } else if (status === "cancelled") {
+      console.group("[Webview] Processing CANCELLED status");
+      console.log("Cancelled Tools:", tools);
+      console.log("Current tool status elements in DOM before update:");
+      logToolStatusElements(this.chatUI);
+      console.log("Batch Mode:", batchMode);
+      console.log("Current Index:", currentIndex);
+      console.log("Total Count:", totalCount);
+      console.log("Success Count:", successCount);
+      console.groupEnd();
+      
+      // Remove any existing status indicators
+      const startingIndicator = this.chatUI.chatMessages.querySelector(
+        `[data-tool-id*="starting-${this.currentExecutionId}"]`,
+      );
+      if (startingIndicator) startingIndicator.remove();
+      const workingIndicator = this.chatUI.chatMessages.querySelector(
+        `[data-tool-id*="working-${this.currentExecutionId}"]`,
+      );
+      if (workingIndicator) workingIndicator.remove();
+      
+      const toolList = tools && tools.length > 0 ? tools.join(", ") : "Tool execution";
+      const progressText = successCount > 0 ? ` (${successCount} completed)` : "";
+      content = `<div class="${className} cancelled" data-tool-id="cancelled-${this.currentExecutionId}">
+        <div class="tool-status-main">
+          <div class="tool-icon">🚫</div>
+          <div class="tool-content">
+            <div class="tool-text">Cancelled: ${toolList}${progressText}</div>
+          </div>
+          <div class="tool-meta">
+            <div class="tool-badge">Cancelled</div>
+          </div>
+        </div>
+      </div>`;
     } else if (status === "error") {
       console.group("[Webview] Processing ERROR status");
       console.error("Error Details:", error);

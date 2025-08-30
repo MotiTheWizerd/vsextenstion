@@ -1,6 +1,7 @@
 import { config } from "./config";
 import { ApiClient } from "./apiClient";
 import type { RayResponse, RayRequest } from "./types/messages";
+import { SessionManager } from "./utils/sessionManager";
 
 // Forward declaration to avoid circular import
 let processRayResponse: ((rayResponse: RayResponse) => Promise<void>) | null = null;
@@ -31,6 +32,12 @@ export async function sendToRayLoop(prompt: string): Promise<string> {
 
     console.log(`[RayDaemon] API Response Status: ${response.status}`);
     console.log(`[RayDaemon] API Response Data:`, response.data);
+
+    // Track task_id if present for cancellation
+    try {
+      const taskId = (response.data as any)?.task_id;
+      if (taskId) SessionManager.getInstance().setLastTaskId(taskId);
+    } catch {}
 
     // Process the response through the same logic as handleRayPostResponse
     // This will handle both direct responses and tool execution
@@ -128,6 +135,14 @@ export async function sendCommandResultsToRay(
     JSON.stringify(commandResults, null, 2),
   );
 
+  // Check if any results were cancelled - if so, don't send to Ray
+  const hasCancelledResults = commandResults.some(result => result.cancelled);
+  if (hasCancelledResults) {
+    console.log(`[RayDaemon] Execution was cancelled, skipping sending results to Ray`);
+    setActiveToolExecution(false);
+    return;
+  }
+
   // Create a unique key for this command result send
   const commandKey = `${originalMessage}-${JSON.stringify(commandResults)}-${Date.now()}`;
 
@@ -180,6 +195,12 @@ export async function sendCommandResultsToRay(
       `[RayDaemon] Command results API response data:`,
       JSON.stringify(response.data, null, 2),
     );
+
+    // Track task_id from follow-up responses as well
+    try {
+      const taskId = (response.data as any)?.task_id;
+      if (taskId) SessionManager.getInstance().setLastTaskId(taskId);
+    } catch {}
 
     // IMPORTANT: Process Ray's response to the command results
     if (response.data && response.status >= 200 && response.status < 300) {

@@ -4,6 +4,8 @@ import { SessionManager } from "./utils/sessionManager";
 export const config = {
   // Ray's main API endpoint - where all messages go (both user messages and command results)
   apiEndpoint: "http://localhost:8000/api/vscode_user_message",
+  // Agent cancel endpoint (if not set, derived from apiEndpoint)
+  cancelEndpoint: "",
 
   // Port for the webhook server that Ray can POST back to
   webhookPort: 3001,
@@ -66,3 +68,27 @@ export const config = {
     };
   },
 };
+
+// Helper to compute cancel endpoint if not explicitly set
+export function getCancelEndpoint(): string {
+  if (config.cancelEndpoint && config.cancelEndpoint.length > 0) {
+    return config.cancelEndpoint;
+  }
+  try {
+    const url = new URL(config.apiEndpoint);
+    // Heuristic: replace known path if present
+    if (url.pathname.includes("/api/vscode_user_message")) {
+      url.pathname = url.pathname.replace(
+        "/api/vscode_user_message",
+        "/api/agent/stop",
+      );
+      return url.toString();
+    }
+    // Fallback: append standard path
+    url.pathname = "/api/agent/stop";
+    return url.toString();
+  } catch {
+    // Last resort
+    return "http://localhost:8000/api/agent/stop";
+  }
+}

@@ -1,5 +1,6 @@
 import { logInfo, logError } from "../../../logging";
 import { sendCommandResultsToRay, setActiveToolExecution } from "../../../rayLoop";
+import { hideTyping } from "../../../extension_utils/uiNotifier";
 
 export async function sendResultsToRay(
   content: string,
@@ -9,6 +10,15 @@ export async function sendResultsToRay(
   console.log(
     "[RayDaemon] TIMING: About to send results to Ray and wait for follow-up",
   );
+
+  // Check if execution was cancelled
+  const hasCancelledResults = results.some(result => result.cancelled);
+  if (hasCancelledResults) {
+    console.log("[RayDaemon] Execution was cancelled, not sending results to Ray");
+    setActiveToolExecution(false);
+    hideTyping(); // Don't show message here since cancel handler already shows it
+    return;
+  }
 
   const commandResults = results.map((result) => ({
     command: result.command,
@@ -43,6 +53,6 @@ export async function sendResultsToRay(
       rayError,
     );
     setActiveToolExecution(false);
+    hideTyping("Server error while sending results. Stopped waiting.");
   }
 }
-

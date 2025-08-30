@@ -18,7 +18,7 @@ export function addMessage(ui, sender, content, options = {}) {
 
   if (replaceLast) {
     const lastMessage = ui.chatMessages.lastElementChild;
-    if (lastMessage && lastMessage.classList.contains("message")) lastMessage.remove();
+    if (lastMessage && lastMessage.classList.contains("message")) {lastMessage.remove();}
   }
 
   if (customElement) {
@@ -29,15 +29,15 @@ export function addMessage(ui, sender, content, options = {}) {
     contentDiv.appendChild(customElement);
     wrapper.appendChild(contentDiv);
     ui.chatMessages.appendChild(wrapper);
-    if (wasScrolledToBottom) ui.scrollToBottom();
+    if (wasScrolledToBottom) {ui.scrollToBottom();}
     console.groupEnd();
     return wrapper;
   }
 
   const messageDiv = document.createElement("div");
   messageDiv.className = `message ${sender}`;
-  if (isWorking) messageDiv.setAttribute("data-working", "true");
-  if (isToolMessage) messageDiv.classList.add("tool-message");
+  if (isWorking) {messageDiv.setAttribute("data-working", "true");}
+  if (isToolMessage) {messageDiv.classList.add("tool-message");}
 
   if (showAvatar && !isToolMessage) {
     const avatar = document.createElement("div");
@@ -48,8 +48,8 @@ export function addMessage(ui, sender, content, options = {}) {
 
   const contentDiv = document.createElement("div");
   contentDiv.className = "message-content";
-  if (isMarkdown && content) contentDiv.innerHTML = MarkdownParser.parse(content);
-  else contentDiv.textContent = content || "";
+  if (isMarkdown && content) {contentDiv.innerHTML = MarkdownParser.parse(content);}
+  else {contentDiv.textContent = content || "";}
   messageDiv.appendChild(contentDiv);
 
   if (!isToolMessage) {
@@ -78,7 +78,7 @@ export function addMessage(ui, sender, content, options = {}) {
   });
 
   ui.chatMessages.appendChild(messageDiv);
-  if (wasScrolledToBottom) ui.scrollToBottom();
+  if (wasScrolledToBottom) {ui.scrollToBottom();}
 
   const expandableCount = messageDiv.querySelector(".tool-count.expandable");
   if (expandableCount) {
@@ -100,14 +100,14 @@ function isScrolledToBottom(ui) {
 
 export function handleSendMessage(ui) {
   const message = ui.chatInput.value.trim();
-  if (!message) return;
+  if (!message) {return;}
   ui.addMessage("user", message, { showAvatar: true });
   ui.chatInput.value = "";
   ui.adjustTextareaHeight();
   ui.updateSendButton();
   ui.showTypingIndicator(true);
   ui.messageHistory.push(message);
-  if (ui.messageHistory.length > 50) ui.messageHistory.shift();
+  if (ui.messageHistory.length > 50) {ui.messageHistory.shift();}
   try {
     ui.postMessage({ type: "chat", content: message });
     ui.typingTimeout = setTimeout(() => {
@@ -127,10 +127,10 @@ export function handleSendMessage(ui) {
 }
 
 export function navigateHistory(ui, direction) {
-  if (ui.messageHistory.length === 0) return;
-  if (direction === "up" && ui.historyIndex < ui.messageHistory.length - 1) ui.historyIndex++;
-  else if (direction === "down" && ui.historyIndex >= 0) ui.historyIndex--;
-  else return;
+  if (ui.messageHistory.length === 0) {return;}
+  if (direction === "up" && ui.historyIndex < ui.messageHistory.length - 1) {ui.historyIndex++;}
+  else if (direction === "down" && ui.historyIndex >= 0) {ui.historyIndex--;}
+  else {return;}
 
   const message = ui.historyIndex >= 0
     ? ui.messageHistory[ui.messageHistory.length - 1 - ui.historyIndex]
@@ -141,14 +141,20 @@ export function navigateHistory(ui, direction) {
 }
 
 export function showTypingIndicator(ui, show) {
-  if (ui.typingTimeout) clearTimeout(ui.typingTimeout);
+  if (ui.typingTimeout) {clearTimeout(ui.typingTimeout);}
   ui.typingIndicator.classList.toggle("show", show);
-  if (show) ui.scrollToBottom();
+  
+  // Update send button state
+  if (ui.sendButton) {
+    ui.sendButton.setAttribute("data-state", show ? "working" : "idle");
+  }
+  
+  // Propagate global working state for broader UI reactions
+  try { window.AgentWork && window.AgentWork.setWorking(!!show); } catch (_) {}
+  if (show) {ui.scrollToBottom();}
 }
 
 export function updateSendButton(ui) {
-  const hasText = ui.chatInput.value.trim().length > 0;
-  ui.sendButton.disabled = !hasText;
-  ui.sendButton.textContent = hasText ? "Send" : "Send";
+  // Keep button always enabled (visual state handles meaning)
+  ui.sendButton.disabled = false;
 }
-
